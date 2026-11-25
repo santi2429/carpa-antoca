@@ -5,5 +5,12 @@ window.CARPA_CONFIG = {
   base: 200000,                                               
   contarClientas: false,                                       
   avisoCierre: '', // PENDIENTE: URL de la aplicación web de Apps Script
-  firebase: null // PENDIENTE: pegar aquí el bloque firebaseConfig del proyecto
+  firebase: {
+    apiKey: 'AIzaSyAtxvHva2yc60LNXYnInDJb5rmPtDHQq0U',
+    authDomain: 'carpa-antoca.firebaseapp.com',
+    projectId: 'carpa-antoca',
+    storageBucket: 'carpa-antoca.firebasestorage.app',
+    messagingSenderId: '1043901931033',
+    appId: '1:1043901931033:web:f804f6e7dd80ff48e89488'
+  }
 };
