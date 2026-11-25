@@ -165,7 +165,10 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
 <!-- Hoja: escanear y confirmar -->
 <div class="sheet" id="shVenta" role="dialog" aria-modal="true" aria-labelledby="ttlVenta"><div class="panel">
   <div style="display:flex;justify-content:space-between;align-items:center"><h2 id="ttlVenta" style="font-size:20px">Nueva venta</h2><button class="link" type="button" id="btnCancel">Cancelar</button></div>
-  <div id="pasoScan"><div id="reader"></div><p class="note">Apunta al QR del precio. Si no lo lee, elige el precio aquí:</p><div class="grid3" id="preciosManual"></div></div>
+  <div id="pasoScan"><div id="reader"></div>
+    <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px"><span id="scanTxt" style="font-weight:600;font-size:15px"></span>
+      <div style="height:8px;background:var(--stone);border-radius:4px;overflow:hidden"><div id="scanBar" style="height:100%;width:0;background:var(--esp);transition:width .1s"></div></div></div>
+    <p class="note">Apunta al QR del precio. Si no lo lee, elige el precio aquí:</p><div class="grid3" id="preciosManual"></div></div>
   <div id="pasoConf" hidden>
     <div class="card" style="flex-direction:row;align-items:center;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.4" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><div><span class="note">Precio</span><div class="j" style="font-size:26px;font-weight:600" id="vPrecio"></div></div><button class="link" type="button" id="btnOtro" style="margin-left:auto">Cambiar</button></div>
     <label for="vCant" class="sub">Cantidad de prendas</label>
@@ -391,12 +394,27 @@ function leerQR(txt) { // formato: ANTOCA|30000
   if (navigator.vibrate) navigator.vibrate(80);
   elegirPrecio(p);
 }
+function estadoScan(txt, p) { $('scanTxt').textContent = txt; $('scanBar').style.width = Math.round((p || 0) * 100) + '%'; }
 function pararScanner() { if (scanner) { scanner.stop().catch(() => {}).finally(() => { try { scanner.clear(); } catch (e) {} }); scanner = null; } }
 function iniciarScanner() {
   $('pasoScan').hidden = false; $('pasoConf').hidden = true;
   if (!window.Html5Qrcode) { toast('Escáner no disponible: elige el precio'); return; }
   scanner = new Html5Qrcode('reader');
-  scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, t => { pararScanner(); leerQR(t); }, () => {})
+  // Lectura con calma: el mismo QR debe verse seguido durante 1,2 s (y nunca en el primer 0,8 s),
+  // así pasar la cámara por encima de otro QR no lo registra.
+  const inicio = Date.now(), SOSTENER = 1200;
+  let cand = null, desde = 0, ultimo = 0;
+  estadoScan('Apunta al QR del precio y quédate quieta un momento');
+  scanner.start({ facingMode: 'environment' }, { fps: 12, qrbox: 200 }, t => {
+    const ahora = Date.now();
+    if (ahora - inicio < 800) return;
+    if (t !== cand || ahora - ultimo > 500) { cand = t; desde = ahora; }
+    ultimo = ahora;
+    const m = /^ANTOCA\|(\d+)$/.exec(String(t).trim());
+    const falta = SOSTENER - (ahora - desde);
+    if (falta > 0) { estadoScan((m ? 'Leyendo ' + fmt(Number(m[1])) : 'Leyendo') + '… mantén la cámara quieta', 1 - falta / SOSTENER); return; }
+    pararScanner(); leerQR(t);
+  }, () => { if (cand && Date.now() - ultimo > 500) { cand = null; estadoScan('Apunta al QR del precio y quédate quieta un momento'); } })
     .catch(() => { scanner = null; toast('Sin permiso de cámara: elige el precio'); });
 }
 function elegirPrecio(p) {
