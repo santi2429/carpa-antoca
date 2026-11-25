@@ -54,6 +54,7 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
 .panel{background:var(--bg);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;max-height:94vh;overflow:auto}
 #reader{width:100%;border-radius:14px;overflow:hidden;background:#000;min-height:260px}
 #pasoConf:not([hidden]){display:flex;flex-direction:column;gap:14px}
+.sync{border-radius:12px;padding:10px 12px;font-size:14px;font-weight:600}.sync.ok{background:#E6F2EA;color:#2E7D4F}.sync.warn{background:#FFF4E0;color:#8A5A00}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--esp);color:#fff;padding:12px 18px;border-radius:12px;font-weight:500;display:none;z-index:20}
 .qrs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.qr{background:#fff;border:1px solid var(--stone);border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px;break-inside:avoid}
 .qr b{font:600 24px Jost,sans-serif}
@@ -79,6 +80,7 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
   <!-- VENDER -->
   <section id="v-vender" class="view">
     <div class="top"><div><div class="brand">Ántoca</div><div class="sub">Carpa Cedemoda · Barrio Triste</div></div><div style="text-align:right"><div class="sub" id="hoyTxt"></div><div class="sub"><span id="quien"></span> · <button class="link" type="button" id="btnSalir" style="min-height:32px;padding:0">Salir</button></div></div></div>
+    <div id="sync" class="sync" hidden></div>
     <div class="hero"><span style="font-size:13px;color:#D9CFC5">Vendido hoy</span><span class="big" id="hoyTotal">$0</span>
       <div class="row"><span id="hoyPrendas">0 prendas</span><span id="hoyVentas">0 ventas</span><span id="hoyClientas" hidden></span></div></div>
     <button class="scan" id="btnScan" type="button">
@@ -212,7 +214,16 @@ const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 // ---------- Sesión y roles ----------
-let USER = null, ROL = null, subs = [], usuarios = [];
+let USER = null, ROL = null, subs = [], usuarios = [], pendientes = 0;
+function pintarSync() {
+  const e = $('sync'); if (!e || !db) return;
+  const off = !navigator.onLine;
+  e.hidden = false;
+  e.className = 'sync ' + (pendientes || off ? 'warn' : 'ok');
+  e.textContent = pendientes ? (off ? 'Sin señal · ' : 'Subiendo · ') + pendientes + (pendientes === 1 ? ' venta por subir' : ' ventas por subir')
+    : off ? 'Sin señal · las ventas se guardan en el celular' : '✓ Todo sincronizado';
+}
+window.addEventListener('online', pintarSync); window.addEventListener('offline', pintarSync);
 const esAdmin = () => ROL === 'admin' || ROL === 'principal';
 const esPrincipal = () => ROL === 'principal';
 const ROLES = { principal: 'principal', admin: 'admin', vendedora: '' };
@@ -234,7 +245,9 @@ function suscribir() {
   subs.forEach(u => u()); subs = [];
   // La vendedora solo pide (y las reglas solo le entregan) lo de hoy; el admin, todo.
   const desde = esAdmin() ? 0 : inicioHoy();
-  subs.push(db.collection('ventas').where('ts', '>=', desde).orderBy('ts').onSnapshot(s => { ventas = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+  subs.push(db.collection('ventas').where('ts', '>=', desde).orderBy('ts').onSnapshot({ includeMetadataChanges: true }, s => {
+    ventas = s.docs.map(d => ({ id: d.id, ...d.data() }));
+    pendientes = s.docs.filter(d => d.metadata.hasPendingWrites).length; pintarSync(); render(); },
     () => toast('No se pudieron leer las ventas')));
   subs.push(db.collection('clientas').where('ts', '>=', desde).onSnapshot(s => { clientas = s.docs.map(d => d.data()); render(); }, () => {}));
   if (esAdmin()) {
@@ -252,9 +265,19 @@ function iniciarDatos() {
       if (!u) { USER = ROL = null; $('nav').hidden = true; mostrar('login'); return; }
       $('lErr').textContent = '';
       try {
-        const p = await db.collection('usuarios').doc(u.uid).get();
-        if (!p.exists || !['principal', 'admin', 'vendedora'].includes(p.data().rol) || p.data().activo !== true) throw new Error('sin rol');
-        USER = u; ROL = p.data().rol; aplicarRol(p.data().nombre || u.email); suscribir();
+        let perfil = null, sinSenal = false;
+        try { const p = await db.collection('usuarios').doc(u.uid).get(); perfil = p.exists ? p.data() : null; }
+        catch (err) {
+          if (err.code === 'permission-denied') throw err;
+          sinSenal = true;                                   // sin internet: usar el último perfil conocido
+          try { perfil = JSON.parse(localStorage.getItem('carpa_perfil_' + u.uid)); } catch (x) {}
+        }
+        if (!perfil || !['principal', 'admin', 'vendedora'].includes(perfil.rol) || perfil.activo !== true) {
+          if (sinSenal) { $('lErr').textContent = 'Sin señal. Conéctate una vez para entrar.'; mostrar('login'); return; }
+          throw new Error('sin rol');
+        }
+        try { localStorage.setItem('carpa_perfil_' + u.uid, JSON.stringify({ rol: perfil.rol, activo: perfil.activo, nombre: perfil.nombre })); } catch (x) {}
+        USER = u; ROL = perfil.rol; aplicarRol(perfil.nombre || u.email); suscribir();
       } catch (e) { $('lErr').textContent = 'Este usuario no tiene permiso en la carpa.'; firebase.auth().signOut(); }
     });
   } else {
@@ -271,18 +294,20 @@ $('fLogin').addEventListener('submit', async e => {
   $('btnLogin').disabled = false;
 });
 $('btnSalir').addEventListener('click', () => firebase.auth().signOut());
+// Sin señal: Firestore guarda en el celular y sube cuando vuelve la conexión. No se espera al servidor.
+const enCola = p => p.catch(err => { console.error(err); toast('No se pudo guardar: ' + (err.code || 'error')); });
 async function guardarVenta(v) {
-  if (db) await db.collection('ventas').doc(v.id).set(v);
+  if (db) enCola(db.collection('ventas').doc(v.id).set(v));
   else { ventas.push(v); LS.set('carpa_ventas', ventas); render(); }
 }
 async function anularVenta(v) {
   const patch = { anulada: true, anuladaTs: Date.now(), anuladaPor: USER ? USER.uid : 'prueba' };
-  if (db) await db.collection('ventas').doc(v.id).update(patch);
+  if (db) enCola(db.collection('ventas').doc(v.id).update(patch));
   else { Object.assign(v, patch); LS.set('carpa_ventas', ventas); render(); }
 }
 async function sumarClienta() {
   const c = { id: uid(), ts: Date.now(), fecha: hoy(), uid: USER ? USER.uid : 'prueba' };
-  if (db) await db.collection('clientas').doc(c.id).set(c);
+  if (db) enCola(db.collection('clientas').doc(c.id).set(c));
   else { clientas.push(c); LS.set('carpa_clientas', clientas); render(); }
 }
 async function guardarCierre(c) {
@@ -418,6 +443,7 @@ function ws(rows, cols) { const s = XLSX.utils.json_to_sheet(rows); s['!cols'] =
 // Confirmación extra antes de cerrar: muestra el resumen y exige tocar "Sí, cerrar el día".
 $('btnCerrar').addEventListener('click', () => {
   if (!esAdmin()) { toast('Solo un administrador puede cerrar el día'); return; }
+  if (pendientes || !navigator.onLine) { toast('Hay ventas sin subir o no hay señal: cierra cuando todo esté sincronizado'); return; }
   if (!window.XLSX) { toast('No cargó el generador de Excel'); return; }
   const x = renderCierre();
   if (x.cont === null) { toast('Primero escribe el efectivo contado'); $('cContado').focus(); return; }
@@ -568,6 +594,7 @@ C.precios.forEach(p => {
 $('btnPrint').addEventListener('click', () => window.print());
 
 iniciarDatos();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 setInterval(() => { if ($('hoyTxt').textContent.slice(0, 10) !== hoy()) render(); }, 60000); // cambia de día sola
 }
 </script>
