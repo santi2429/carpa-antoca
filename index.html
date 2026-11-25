@@ -108,14 +108,27 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
 
   <!-- INFORME -->
   <section id="v-informe" class="view">
-    <div class="top"><h1 style="font-size:24px">Informe</h1>
-      <select class="f" id="rango" style="width:auto"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="0">Todo</option></select></div>
+    <div class="top"><h1 style="font-size:24px">Informe</h1><span class="sub" id="rTexto"></span></div>
+    <div class="card" style="gap:10px">
+      <div class="grid2">
+        <label class="sub" style="display:flex;flex-direction:column;gap:4px">Desde<input class="f" type="date" id="rDesde"></label>
+        <label class="sub" style="display:flex;flex-direction:column;gap:4px">Hasta<input class="f" type="date" id="rHasta"></label>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="rAtajos">
+        <button class="opt" type="button" data-r="hoy" style="min-height:40px;padding:0 12px">Hoy</button>
+        <button class="opt" type="button" data-r="ayer" style="min-height:40px;padding:0 12px">Ayer</button>
+        <button class="opt" type="button" data-r="semana" style="min-height:40px;padding:0 12px">Esta semana</button>
+        <button class="opt" type="button" data-r="mes" style="min-height:40px;padding:0 12px">Este mes</button>
+        <button class="opt" type="button" data-r="mesant" style="min-height:40px;padding:0 12px">Mes pasado</button>
+        <button class="opt" type="button" data-r="todo" style="min-height:40px;padding:0 12px">Todo</button>
+      </div>
+    </div>
     <div class="kpis"><div class="kpi" style="background:var(--esp);color:#FAF8F5"><span style="color:#D9CFC5">Vendido</span><b id="kTotal">$0</b></div><div class="kpi"><span>Promedio día</span><b id="kProm">$0</b></div><div class="kpi"><span>Prendas</span><b id="kPrendas">0</b></div></div>
     <div class="card"><h2 style="font-size:16px">Ventas por día</h2><div class="fig"><canvas id="chDia"></canvas></div></div>
     <div class="card"><h2 style="font-size:16px">Precios que más se mueven (prendas)</h2><div class="fig"><canvas id="chPrecio"></canvas></div></div>
     <div class="card"><h2 style="font-size:16px">Días de la semana con más movimiento</h2><div class="fig"><canvas id="chSemana"></canvas></div><span class="note" id="semNota"></span></div>
     <div class="card"><h2 style="font-size:16px">Horas con más ventas</h2><div class="fig"><canvas id="chHora"></canvas></div></div>
-    <button class="pri" id="btnConsol" type="button">Descargar Excel consolidado</button>
+    <button class="pri" id="btnConsol" type="button">Descargar Excel del periodo</button>
   </section>
 
   <!-- USUARIOS -->
@@ -513,8 +526,33 @@ function chart(id, type, labels, data, opts = {}) {
     options: Object.assign({ maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => opts.money ? fmt(c.raw) : String(c.raw) } } },
       scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: v => opts.money ? (v >= 1e6 ? (v / 1e6).toFixed(1) + ' M' : Math.round(v / 1000) + ' mil') : v } } } }, opts.extra || {}) });
 }
-function desdeRango() { const n = Number($('rango').value); if (!n) return ''; const d = new Date(); d.setDate(d.getDate() - n + 1); return dia(d); }
-const enRango = () => { const desde = desdeRango(); return validas().filter(v => v.fecha >= desde); };
+// Periodo libre: Desde / Hasta (AAAA-MM-DD), con atajos. Vacío = sin límite por ese lado.
+function desdeRango() { return $('rDesde').value || ''; }
+function hastaRango() { return $('rHasta').value || '9999-12-31'; }
+const enRango = () => { const d = desdeRango(), h = hastaRango(); return validas().filter(v => v.fecha >= d && v.fecha <= h); };
+function fijarRango(tipo) {
+  const t = new Date(), f = x => dia(x);
+  let d = '', h = f(t);
+  if (tipo === 'hoy') d = h;
+  else if (tipo === 'ayer') { const y = new Date(t); y.setDate(t.getDate() - 1); d = h = f(y); }
+  else if (tipo === 'semana') { const l = new Date(t); l.setDate(t.getDate() - ((t.getDay() + 6) % 7)); d = f(l); }
+  else if (tipo === 'mes') d = f(new Date(t.getFullYear(), t.getMonth(), 1));
+  else if (tipo === 'mesant') { d = f(new Date(t.getFullYear(), t.getMonth() - 1, 1)); h = f(new Date(t.getFullYear(), t.getMonth(), 0)); }
+  else if (tipo === 'todo') { d = ''; h = ''; }
+  $('rDesde').value = d; $('rHasta').value = h;
+  document.querySelectorAll('#rAtajos button').forEach(b => b.classList.toggle('sel', b.dataset.r === tipo));
+  renderInforme();
+}
+document.querySelectorAll('#rAtajos button').forEach(b => b.addEventListener('click', () => fijarRango(b.dataset.r)));
+['rDesde', 'rHasta'].forEach(id => $(id).addEventListener('change', () => {
+  if ($('rDesde').value && $('rHasta').value && $('rDesde').value > $('rHasta').value) { const x = $('rDesde').value; $('rDesde').value = $('rHasta').value; $('rHasta').value = x; }
+  document.querySelectorAll('#rAtajos button').forEach(b => b.classList.remove('sel'));
+  renderInforme();
+}));
+function textoRango() {
+  const d = $('rDesde').value, h = $('rHasta').value;
+  return !d && !h ? 'Todas las fechas' : d === h ? d : (d || 'inicio') + ' a ' + (h || 'hoy');
+}
 function agregados(vs) {
   const porDia = {}, porPrecio = {}, porSem = [0, 0, 0, 0, 0, 0, 0], diasSem = [new Set(), new Set(), new Set(), new Set(), new Set(), new Set(), new Set()], porHora = {};
   vs.forEach(v => { const t = new Date(v.ts), w = t.getDay(), h = t.getHours();
@@ -524,6 +562,7 @@ function agregados(vs) {
   return { porDia, porPrecio, porSem, diasSem, porHora };
 }
 function renderInforme() {
+  $('rTexto').textContent = textoRango();
   const vs = enRango(), a = agregados(vs), fechas = Object.keys(a.porDia).sort();
   const total = vs.reduce((s, v) => s + v.total, 0);
   $('kTotal').textContent = fmt(total); $('kProm').textContent = fmt(fechas.length ? total / fechas.length : 0); $('kPrendas').textContent = vs.reduce((s, v) => s + v.cant, 0);
@@ -533,16 +572,17 @@ function renderInforme() {
   const orden = [1, 2, 3, 4, 5, 6, 0]; // lunes a domingo
   const prom = orden.map(w => a.diasSem[w].size ? +(a.porSem[w] / a.diasSem[w].size).toFixed(1) : 0);
   chart('chSemana', 'bar', orden.map(w => DIAS[w]), prom);
-  const desde = desdeRango(), nCl = clientas.filter(c => c.fecha >= desde).length;
+  const desde = desdeRango(), hasta = hastaRango(), nCl = clientas.filter(c => c.fecha >= desde && c.fecha <= hasta).length;
   const cl = ' Clientas contadas en el rango: ' + nCl + (nCl ? ' (compraron ' + Math.round(100 * vs.length / nCl) + ' de cada 100).' : '.');
   $('semNota').textContent = 'Promedio de ventas por cada día de la semana abierto.' + (C.contarClientas ? cl : '');
   const horas = Object.keys(a.porHora).map(Number).sort((x, y) => x - y);
   chart('chHora', 'bar', horas.map(h => (h % 12 || 12) + (h < 12 ? ' a. m.' : ' p. m.')), horas.map(h => a.porHora[h]));
 }
-$('rango').addEventListener('change', renderInforme);
+fijarRango('mes'); // al abrir: el mes en curso
 $('btnConsol').addEventListener('click', () => {
   if (!window.XLSX) { toast('No cargó el generador de Excel'); return; }
-  const vs = validas(), a = agregados(vs), fechas = Object.keys(a.porDia).sort();
+  const vs = enRango(), a = agregados(vs), fechas = Object.keys(a.porDia).sort();
+  if (!vs.length) { toast('No hay ventas en ese periodo'); return; }
   const wb = XLSX.utils.book_new();
   let acum = 0;
   const diario = fechas.map(f => { acum += a.porDia[f].total; const c = cierres[f]; const w = new Date(f + 'T12:00:00').getDay();
@@ -555,7 +595,7 @@ $('btnConsol').addEventListener('click', () => {
   XLSX.utils.book_append_sheet(wb, ws([1, 2, 3, 4, 5, 6, 0].map(w => ({ 'Día': DIAS[w], 'Días abiertos': a.diasSem[w].size, Ventas: a.porSem[w], 'Promedio ventas': a.diasSem[w].size ? +(a.porSem[w] / a.diasSem[w].size).toFixed(1) : 0 })), [8, 14, 10, 16]), 'Por día de semana');
   XLSX.utils.book_append_sheet(wb, ws(Object.keys(a.porHora).map(Number).sort((x, y) => x - y).map(h => ({ Hora: pad(h) + ':00', Ventas: a.porHora[h] })), [8, 10]), 'Por hora');
   XLSX.utils.book_append_sheet(wb, ws(hojaVentas(vs), [12, 8, 6, 10, 9, 12, 16]), 'Todas las ventas');
-  XLSX.writeFile(wb, 'Carpa_Antoca_consolidado_' + hoy() + '.xlsx');
+  XLSX.writeFile(wb, 'Carpa_Antoca_' + ($('rDesde').value || 'inicio') + '_a_' + ($('rHasta').value || hoy()) + '.xlsx');
 });
 
 // ---------- Usuarios ----------
