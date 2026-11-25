@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // ---- Quién es quién ----
+    function perfil() { return get(/databases/$(db)/documents/usuarios/$(request.auth.uid)).data; }
+    function activo() {
+      return request.auth != null
+        && exists(/databases/$(db)/documents/usuarios/$(request.auth.uid))
+        && perfil().activo == true
+        && perfil().rol in ['principal', 'admin', 'vendedora'];
+    }
+    function admin() { return activo() && perfil().rol in ['principal', 'admin']; }
+    function principal() { return activo() && perfil().rol == 'principal'; }
+    // "Hoy" para la vendedora: últimas 25 horas (cubre desde la medianoche).
+    function reciente(ts) { return ts >= request.time.toMillis() - 90000000; }
+
+    // ---- Usuarios ----
+    // La cuenta principal se crea a mano en la consola, una sola vez. Nadie puede crear otra.
+    match /usuarios/{uid} {
+      allow read: if admin() || (request.auth != null && request.auth.uid == uid);
+      allow create: if request.resource.data.keys().hasOnly(['nombre', 'email', 'rol', 'activo', 'creadoPor', 'ts'])
+        && request.resource.data.activo == true
+        && request.resource.data.creadoPor == request.auth.uid
+        && ((principal() && request.resource.data.rol in ['admin', 'vendedora'])
+            || (admin() && request.resource.data.rol == 'vendedora'));
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activo', 'nombre'])
+        && resource.data.rol != 'principal'
+        && uid != request.auth.uid
+        && (principal() || (admin() && resource.data.rol == 'vendedora'));
+      allow delete: if false;
+    }
+
+    // ---- Ventas ----
+    match /ventas/{id} {
+      allow read: if admin() || (activo() && reciente(resource.data.ts));
+      allow create: if activo()
+        && request.resource.data.keys().hasOnly(['id', 'ts', 'fecha', 'precio', 'cant', 'total', 'medio', 'uid'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.cant is int && request.resource.data.cant > 0 && request.resource.data.cant < 500
+        && request.resource.data.precio is int && request.resource.data.precio > 0
+        && request.resource.data.total == request.resource.data.precio * request.resource.data.cant;
+      allow update: if (admin() || (activo() && reciente(resource.data.ts)))
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulada', 'anuladaTs', 'anuladaPor'])
+        && request.resource.data.anulada == true
+        && request.resource.data.anuladaPor == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ---- Contador de clientas ----
+    match /clientas/{id} {
+      allow read: if admin() || (activo() && reciente(resource.data.ts));
+      allow create: if activo()
+        && request.resource.data.keys().hasOnly(['id', 'ts', 'fecha', 'uid'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---- Cierres de caja (id = fecha AAAA-MM-DD) ----
+    match /cierres/{fecha} {
+      allow read: if admin() || (activo() && reciente(resource.data.ts));
+      allow create: if activo() && request.resource.data.uid == request.auth.uid;
+      allow update: if admin() || (activo() && reciente(resource.data.ts) && request.resource.data.uid == request.auth.uid);
+      allow delete: if false;
+    }
+  }
+}

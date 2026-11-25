@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#3A2E28">
+<title>Carpa Ántoca</title>
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Carpa Ántoca — ventas y caja. Neutros de marca: crudo, espresso, piedra. */
+:root{--bg:#FAF8F5;--ink:#1F1B18;--mute:#6B6058;--esp:#3A2E28;--stone:#E9E3DC;--line:#D9CFC5;--ok:#2E7D4F;--bad:#B3261E;--card:#fff}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Inter,system-ui,sans-serif}
+body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+h1,h2,.j{font-family:Jost,sans-serif;font-weight:500;margin:0}
+main{max-width:520px;margin:0 auto;padding:calc(18px + env(safe-area-inset-top)) 18px 24px}
+.view{display:none;flex-direction:column;gap:14px}.view.on{display:flex}
+.top{display:flex;justify-content:space-between;align-items:flex-end}
+.brand{font:500 26px Jost,sans-serif}.sub{font-size:13px;color:var(--mute)}
+.hero{background:var(--esp);color:#FAF8F5;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:4px}
+.hero .big{font:500 38px/1.05 Jost,sans-serif}.hero .row{display:flex;flex-wrap:wrap;gap:14px;font-size:14px;color:#E9E3DC}
+.card{background:var(--card);border:1px solid var(--stone);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+button,.btn{font:inherit;border:0;border-radius:14px;min-height:48px;cursor:pointer}
+.pri{background:var(--esp);color:#FAF8F5;font:600 18px Jost,sans-serif;min-height:58px;width:100%}
+.sec{background:var(--stone);color:var(--ink);font-weight:500;padding:0 14px}
+.scan{background:var(--stone);min-height:120px;width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font:600 20px Jost,sans-serif;color:var(--ink)}
+button:focus-visible,input:focus-visible{outline:3px solid #8C7B6B;outline-offset:2px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.opt{background:#fff;border:1px solid var(--line);font-weight:500}.opt.sel{background:var(--esp);color:#FAF8F5;border-color:var(--esp)}
+.qty{display:flex;gap:10px}.qty button{width:64px;min-height:64px;font:500 30px Jost,sans-serif;background:var(--stone)}
+.qty input{flex:1;height:64px;border:2px solid var(--esp);border-radius:14px;text-align:center;font:600 34px Jost,sans-serif;background:#fff;color:var(--ink)}
+input.f{height:48px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font:500 16px Inter,sans-serif;width:100%;background:#fff;color:var(--ink)}
+.list{display:flex;flex-direction:column}.it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--stone)}
+.it:last-child{border-bottom:0}.it b{font-weight:600}.it small{display:block;color:var(--mute);font-size:13px}
+.link{background:none;color:var(--mute);min-height:44px;text-decoration:underline;padding:0 6px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:6px 0;text-align:left}th{color:var(--mute);font-weight:500}
+td.n,th.n{text-align:right;white-space:nowrap}tr+tr td{border-top:1px solid var(--stone)}
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.kpi{background:var(--stone);border-radius:12px;padding:10px}.kpi span{display:block;font-size:12px;color:#5A4F47}.kpi b{font:500 18px Jost,sans-serif}
+.fig{position:relative;height:200px}
+.note{font-size:12px;color:var(--mute)}.okt{color:var(--ok);font-weight:600}.badt{color:var(--bad);font-weight:600}
+nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:1px solid var(--stone);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px;color:var(--mute)}nav button.on{color:var(--ink);font-weight:600}
+.sheet{position:fixed;inset:0;background:rgba(31,27,24,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}.sheet.on{display:flex}
+.panel{background:var(--bg);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;max-height:94vh;overflow:auto}
+#reader{width:100%;border-radius:14px;overflow:hidden;background:#000;min-height:260px}
+#pasoConf:not([hidden]){display:flex;flex-direction:column;gap:14px}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--esp);color:#fff;padding:12px 18px;border-radius:12px;font-weight:500;display:none;z-index:20}
+.qrs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.qr{background:#fff;border:1px solid var(--stone);border-radius:14px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:4px;break-inside:avoid}
+.qr b{font:600 24px Jost,sans-serif}
+.banner{background:#FFF4E0;border:1px solid #E9C98A;border-radius:12px;padding:10px 12px;font-size:13px}
+@media print{nav,.noprint,.top,.banner{display:none!important}body{padding:0;background:#fff}.view{display:none!important}#v-qr{display:flex!important}.qrs{grid-template-columns:repeat(3,1fr)}.qr{border:1px dashed #999}}
+</style>
+</head>
+<body>
+<main>
+  <div id="banner" class="banner noprint" hidden>Modo prueba: las ventas se guardan solo en este celular. Falta conectar Firebase.</div>
+
+  <!-- LOGIN -->
+  <section id="v-login" class="view">
+    <div style="padding-top:10vh;display:flex;flex-direction:column;gap:6px"><div class="brand" style="font-size:40px">Ántoca</div><div class="sub">Carpa Cedemoda · Ventas y caja</div></div>
+    <form id="fLogin" class="card" style="gap:12px">
+      <label for="lEmail" class="sub">Correo</label><input class="f" id="lEmail" type="email" autocomplete="username" required>
+      <label for="lPass" class="sub">Contraseña</label><input class="f" id="lPass" type="password" autocomplete="current-password" required>
+      <button class="pri" type="submit" id="btnLogin">Ingresar</button>
+      <span class="badt" id="lErr" style="font-size:14px"></span>
+    </form>
+  </section>
+
+  <!-- VENDER -->
+  <section id="v-vender" class="view">
+    <div class="top"><div><div class="brand">Ántoca</div><div class="sub">Carpa Cedemoda · Barrio Triste</div></div><div style="text-align:right"><div class="sub" id="hoyTxt"></div><div class="sub"><span id="quien"></span> · <button class="link" type="button" id="btnSalir" style="min-height:32px;padding:0">Salir</button></div></div></div>
+    <div class="hero"><span style="font-size:13px;color:#D9CFC5">Vendido hoy</span><span class="big" id="hoyTotal">$0</span>
+      <div class="row"><span id="hoyPrendas">0 prendas</span><span id="hoyVentas">0 ventas</span><span id="hoyClientas" hidden></span></div></div>
+    <button class="scan" id="btnScan" type="button">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3A2E28" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="4" height="4"/><rect x="13" y="7" width="4" height="4"/><rect x="7" y="13" width="4" height="4"/><path d="M13 13h4v4"/></svg>
+      Escanear QR para vender</button>
+    <button class="sec" id="btnClienta" type="button" hidden>+1 clienta entró</button>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="font-size:17px">Ventas de hoy</h2><span class="note">Toca una para anular</span></div>
+      <div class="list" id="listaHoy"></div></div>
+  </section>
+
+  <!-- CIERRE -->
+  <section id="v-cierre" class="view">
+    <div class="top"><h1 style="font-size:24px">Cierre del día</h1><input class="f" type="date" id="fCierre" style="width:auto"></div>
+    <div class="hero"><span style="font-size:13px;color:#D9CFC5">Total del día</span><span class="big" id="cTotal">$0</span><div class="row"><span id="cResumen"></span></div></div>
+    <div class="card"><h2 style="font-size:16px">Por precio</h2><table><thead><tr><th>Precio</th><th class="n">Prendas</th><th class="n">Valor</th></tr></thead><tbody id="cPrecio"></tbody></table></div>
+    <div class="card"><h2 style="font-size:16px">Por medio de pago</h2><table><tbody id="cMedio"></tbody></table></div>
+    <div class="card"><h2 style="font-size:16px">Cuadre de caja</h2>
+      <table><tbody><tr><td>Base inicial</td><td class="n"><input class="f" id="cBase" inputmode="numeric" style="width:130px;text-align:right"></td></tr>
+      <tr><td>+ Efectivo vendido</td><td class="n" id="cEfec">$0</td></tr><tr><td><b>Debe haber</b></td><td class="n"><b id="cDebe">$0</b></td></tr>
+      <tr><td>Efectivo contado</td><td class="n"><input class="f" id="cContado" inputmode="numeric" style="width:130px;text-align:right"></td></tr></tbody></table>
+      <span id="cDif" class="note"></span></div>
+    <button class="pri" id="btnCerrar" type="button">Cerrar día y descargar Excel</button>
+    <span class="note" id="cEstado"></span>
+  </section>
+
+  <!-- INFORME -->
+  <section id="v-informe" class="view">
+    <div class="top"><h1 style="font-size:24px">Informe</h1>
+      <select class="f" id="rango" style="width:auto"><option value="7">Últimos 7 días</option><option value="30" selected>Últimos 30 días</option><option value="90">Últimos 90 días</option><option value="0">Todo</option></select></div>
+    <div class="kpis"><div class="kpi" style="background:var(--esp);color:#FAF8F5"><span style="color:#D9CFC5">Vendido</span><b id="kTotal">$0</b></div><div class="kpi"><span>Promedio día</span><b id="kProm">$0</b></div><div class="kpi"><span>Prendas</span><b id="kPrendas">0</b></div></div>
+    <div class="card"><h2 style="font-size:16px">Ventas por día</h2><div class="fig"><canvas id="chDia"></canvas></div></div>
+    <div class="card"><h2 style="font-size:16px">Precios que más se mueven (prendas)</h2><div class="fig"><canvas id="chPrecio"></canvas></div></div>
+    <div class="card"><h2 style="font-size:16px">Días de la semana con más movimiento</h2><div class="fig"><canvas id="chSemana"></canvas></div><span class="note" id="semNota"></span></div>
+    <div class="card"><h2 style="font-size:16px">Horas con más ventas</h2><div class="fig"><canvas id="chHora"></canvas></div></div>
+    <button class="pri" id="btnConsol" type="button">Descargar Excel consolidado</button>
+  </section>
+
+  <!-- USUARIOS -->
+  <section id="v-usuarios" class="view">
+    <div class="top"><h1 style="font-size:24px">Usuarios</h1></div>
+    <div class="card" id="uLista"></div>
+    <form class="card" id="fUser" style="gap:10px">
+      <h2 style="font-size:16px">Crear usuario</h2>
+      <label for="uNom" class="sub">Nombre</label><input class="f" id="uNom" required>
+      <label for="uMail" class="sub">Correo (puede ser inventado, ej. vendedora1@carpa.antoca)</label><input class="f" id="uMail" type="email" required>
+      <label for="uPass" class="sub">Contraseña inicial (mínimo 6)</label><input class="f" id="uPass" type="text" minlength="6" required>
+      <label for="uRol" class="sub">Rol</label><select class="f" id="uRol"><option value="vendedora">Vendedora</option><option value="admin" id="optAdmin">Administrador</option></select>
+      <button class="pri" type="submit" id="btnUser">Crear usuario</button><span class="note" id="uMsg"></span>
+    </form>
+  </section>
+
+  <!-- QR -->
+  <section id="v-qr" class="view">
+    <div class="top noprint"><h1 style="font-size:24px">QR por precio</h1></div>
+    <p class="note noprint" style="margin:0">Uno por precio. Imprímelos y ponlos en el gancho o la etiqueta de cada grupo de prendas.</p>
+    <div class="qrs" id="qrs"></div>
+    <button class="pri noprint" id="btnPrint" type="button">Imprimir hoja de QR</button>
+  </section>
+</main>
+
+<nav class="noprint" id="nav" hidden>
+  <button type="button" data-v="vender" class="on">Vender</button>
+  <button type="button" data-v="cierre">Cierre</button>
+  <button type="button" data-v="informe" class="adm">Informe</button>
+  <button type="button" data-v="qr" class="adm">QR</button>
+  <button type="button" data-v="usuarios" class="adm">Usuarios</button>
+</nav>
+
+<!-- Hoja: escanear y confirmar -->
+<div class="sheet" id="shVenta" role="dialog" aria-modal="true" aria-labelledby="ttlVenta"><div class="panel">
+  <div style="display:flex;justify-content:space-between;align-items:center"><h2 id="ttlVenta" style="font-size:20px">Nueva venta</h2><button class="link" type="button" id="btnCancel">Cancelar</button></div>
+  <div id="pasoScan"><div id="reader"></div><p class="note">Apunta al QR del precio. Si no lo lee, elige el precio aquí:</p><div class="grid3" id="preciosManual"></div></div>
+  <div id="pasoConf" hidden>
+    <div class="card" style="flex-direction:row;align-items:center;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.4" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><div><span class="note">Precio</span><div class="j" style="font-size:26px;font-weight:600" id="vPrecio"></div></div><button class="link" type="button" id="btnOtro" style="margin-left:auto">Cambiar</button></div>
+    <label for="vCant" class="sub">Cantidad de prendas</label>
+    <div class="qty"><button type="button" id="menos" aria-label="Restar">−</button><input id="vCant" inputmode="numeric" value="1"><button type="button" id="mas" aria-label="Sumar">+</button></div>
+    <span class="sub">Medio de pago</span><div class="grid2" id="medios"></div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--stone);padding-top:12px"><span class="sub" id="vDet"></span><span class="j" style="font-size:34px;font-weight:600" id="vTotal"></span></div>
+    <button class="pri" type="button" id="btnReg">Registrar venta</button>
+  </div>
+</div></div>
+
+<!-- Hoja: anular -->
+<div class="sheet" id="shAnular" role="dialog" aria-modal="true"><div class="panel">
+  <h2 style="font-size:20px">¿Anular esta venta?</h2><p id="anTxt" style="margin:0"></p>
+  <div class="grid2"><button class="sec" type="button" id="anNo">No</button><button class="pri" type="button" id="anSi" style="background:var(--bad)">Sí, anular</button></div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script>
+{
+// ---------- Configuración (se sobreescribe desde config.js) ----------
+const C = Object.assign({
+  precios: [15000, 20000, 25000, 30000, 40000, 50000, 60000],        
+  medios: ['Efectivo', 'Transferencia'],
+  base: 200000,                                         
+  contarClientas: false,
+  avisoCierre: '',
+  firebase: null
+}, window.CARPA_CONFIG || {});
+
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + Math.round(n).toLocaleString('es-CO');
+const num = s => Number(String(s).replace(/[^\d]/g, '')) || 0;
+const pad = n => String(n).padStart(2, '0');
+const dia = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const hoy = () => dia(new Date());
+const DIAS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const toast = t => { const e = $('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(() => e.style.display = 'none', 2200); };
+
+// ---------- Almacenamiento: Firestore o modo prueba local ----------
+let ventas = [], clientas = [], cierres = {};
+let db = null;
+const LS = { get(k) { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// ---------- Sesión y roles ----------
+let USER = null, ROL = null, subs = [], usuarios = [];
+const esAdmin = () => ROL === 'admin' || ROL === 'principal';
+const esPrincipal = () => ROL === 'principal';
+const ROLES = { principal: 'principal', admin: 'admin', vendedora: '' };
+const inicioHoy = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
+function mostrar(v) {
+  document.querySelectorAll('.view').forEach(x => x.classList.toggle('on', x.id === 'v-' + v));
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.v === v));
+}
+function aplicarRol(nombre) {
+  $('nav').hidden = false;
+  document.querySelectorAll('.adm').forEach(e => e.hidden = !esAdmin());
+  $('fCierre').disabled = !esAdmin(); if (!esAdmin()) $('fCierre').value = hoy();
+  $('quien').textContent = nombre + (ROLES[ROL] ? ' (' + ROLES[ROL] + ')' : '');
+  $('optAdmin').hidden = !esPrincipal();
+  $('btnSalir').hidden = !db;
+  mostrar('vender'); render();
+}
+function suscribir() {
+  subs.forEach(u => u()); subs = [];
+  // La vendedora solo pide (y las reglas solo le entregan) lo de hoy; el admin, todo.
+  const desde = esAdmin() ? 0 : inicioHoy();
+  subs.push(db.collection('ventas').where('ts', '>=', desde).orderBy('ts').onSnapshot(s => { ventas = s.docs.map(d => ({ id: d.id, ...d.data() })); render(); },
+    () => toast('No se pudieron leer las ventas')));
+  subs.push(db.collection('clientas').where('ts', '>=', desde).onSnapshot(s => { clientas = s.docs.map(d => d.data()); render(); }, () => {}));
+  if (esAdmin()) {
+    subs.push(db.collection('cierres').onSnapshot(s => { cierres = {}; s.docs.forEach(d => cierres[d.id] = d.data()); renderCierre(); }, () => {}));
+    subs.push(db.collection('usuarios').onSnapshot(s => { usuarios = s.docs.map(d => ({ uid: d.id, ...d.data() })); renderUsuarios(); }, () => {}));
+  } else {
+    subs.push(db.collection('cierres').doc(hoy()).onSnapshot(d => { cierres = {}; if (d.exists) cierres[d.id] = d.data(); renderCierre(); }, () => {}));
+  }
+}
+function iniciarDatos() {
+  if (C.firebase && window.firebase) {
+    firebase.initializeApp(C.firebase);
+    db = firebase.firestore();
+    db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); // funciona sin señal y sincroniza luego
+    firebase.auth().onAuthStateChanged(async u => {
+      subs.forEach(x => x()); subs = []; ventas = []; clientas = []; cierres = {};
+      if (!u) { USER = ROL = null; $('nav').hidden = true; mostrar('login'); return; }
+      $('lErr').textContent = '';
+      try {
+        const p = await db.collection('usuarios').doc(u.uid).get();
+        if (!p.exists || !['principal', 'admin', 'vendedora'].includes(p.data().rol) || p.data().activo !== true) throw new Error('sin rol');
+        USER = u; ROL = p.data().rol; aplicarRol(p.data().nombre || u.email); suscribir();
+      } catch (e) { $('lErr').textContent = 'Este usuario no tiene permiso en la carpa.'; firebase.auth().signOut(); }
+    });
+  } else {
+    $('banner').hidden = false; ROL = 'admin';
+    ventas = LS.get('carpa_ventas'); clientas = LS.get('carpa_clientas');
+    LS.get('carpa_cierres').forEach(c => cierres[c.fecha] = c);
+    aplicarRol('Modo prueba');
+  }
+}
+$('fLogin').addEventListener('submit', async e => {
+  e.preventDefault(); $('lErr').textContent = ''; $('btnLogin').disabled = true;
+  try { await firebase.auth().signInWithEmailAndPassword($('lEmail').value.trim(), $('lPass').value); $('lPass').value = ''; }
+  catch (err) { $('lErr').textContent = 'Correo o contraseña incorrectos.'; }
+  $('btnLogin').disabled = false;
+});
+$('btnSalir').addEventListener('click', () => firebase.auth().signOut());
+async function guardarVenta(v) {
+  if (db) await db.collection('ventas').doc(v.id).set(v);
+  else { ventas.push(v); LS.set('carpa_ventas', ventas); render(); }
+}
+async function anularVenta(v) {
+  const patch = { anulada: true, anuladaTs: Date.now(), anuladaPor: USER ? USER.uid : 'prueba' };
+  if (db) await db.collection('ventas').doc(v.id).update(patch);
+  else { Object.assign(v, patch); LS.set('carpa_ventas', ventas); render(); }
+}
+async function sumarClienta() {
+  const c = { id: uid(), ts: Date.now(), fecha: hoy(), uid: USER ? USER.uid : 'prueba' };
+  if (db) await db.collection('clientas').doc(c.id).set(c);
+  else { clientas.push(c); LS.set('carpa_clientas', clientas); render(); }
+}
+async function guardarCierre(c) {
+  if (db) await db.collection('cierres').doc(c.fecha).set(c);
+  else { cierres[c.fecha] = c; LS.set('carpa_cierres', Object.values(cierres)); }
+}
+const validas = () => ventas.filter(v => !v.anulada);
+
+// ---------- Navegación ----------
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => {
+  if (b.classList.contains('adm') && !esAdmin()) return;
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('on', v.id === 'v-' + b.dataset.v));
+  if (b.dataset.v === 'informe') renderInforme();
+  if (b.dataset.v === 'cierre') renderCierre();
+  if (b.dataset.v === 'usuarios') renderUsuarios();
+  window.scrollTo(0, 0);
+}));
+
+// ---------- Vender ----------
+function render() {
+  const f = hoy(), vs = validas().filter(v => v.fecha === f);
+  const d = new Date();
+  $('hoyTxt').textContent = f + ' · ' + DIAS[d.getDay()].toLowerCase();
+  $('hoyTotal').textContent = fmt(vs.reduce((a, v) => a + v.total, 0));
+  $('hoyPrendas').textContent = vs.reduce((a, v) => a + v.cant, 0) + ' prendas';
+  $('hoyVentas').textContent = vs.length + ' ventas';
+  const nc = clientas.filter(c => c.fecha === f).length;
+  $('hoyClientas').hidden = !C.contarClientas; $('hoyClientas').textContent = nc + ' clientas';
+  $('btnClienta').hidden = !C.contarClientas;
+  const lista = $('listaHoy'); lista.textContent = '';
+  const todas = ventas.filter(v => v.fecha === f).slice().reverse();
+  if (!todas.length) { const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Todavía no hay ventas hoy.'; lista.append(p); }
+  todas.forEach(v => {
+    const row = document.createElement('button'); row.type = 'button'; row.className = 'it';
+    row.style.cssText = 'background:none;border-radius:0;width:100%;text-align:left;color:inherit' + (v.anulada ? ';opacity:.45;text-decoration:line-through' : '');
+    const l = document.createElement('div'); const b = document.createElement('b'); b.textContent = v.cant + ' × ' + fmt(v.precio);
+    const s = document.createElement('small'); const t = new Date(v.ts);
+    s.textContent = v.medio + ' · ' + t.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) + (v.anulada ? ' · anulada' : '');
+    l.append(b, s); const r = document.createElement('b'); r.textContent = fmt(v.total); row.append(l, r);
+    if (!v.anulada && (esAdmin() || v.fecha === hoy())) row.addEventListener('click', () => pedirAnular(v));
+    lista.append(row);
+  });
+  if ($('v-cierre').classList.contains('on')) renderCierre();
+}
+$('btnClienta').addEventListener('click', () => { sumarClienta(); toast('+1 clienta'); });
+
+// Hoja de venta
+let scanner = null, precioSel = null, medioSel = C.medios[0];
+const abrir = id => $(id).classList.add('on'), cerrar = id => $(id).classList.remove('on');
+C.precios.forEach(p => { const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = fmt(p); b.addEventListener('click', () => elegirPrecio(p)); $('preciosManual').append(b); });
+C.medios.forEach(m => { const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = m; b.dataset.m = m;
+  b.addEventListener('click', () => { medioSel = m; pintarMedios(); }); $('medios').append(b); });
+const pintarMedios = () => $('medios').querySelectorAll('button').forEach(b => b.classList.toggle('sel', b.dataset.m === medioSel));
+
+function leerQR(txt) { // formato: ANTOCA|30000
+  const m = /^ANTOCA\|(\d+)$/.exec(String(txt).trim());
+  if (!m) { toast('Ese QR no es de la carpa'); return; }
+  const p = Number(m[1]);
+  if (!C.precios.includes(p)) { toast('Precio ' + fmt(p) + ' no está en la lista'); return; }
+  if (navigator.vibrate) navigator.vibrate(80);
+  elegirPrecio(p);
+}
+function pararScanner() { if (scanner) { scanner.stop().catch(() => {}).finally(() => { try { scanner.clear(); } catch (e) {} }); scanner = null; } }
+function iniciarScanner() {
+  $('pasoScan').hidden = false; $('pasoConf').hidden = true;
+  if (!window.Html5Qrcode) { toast('Escáner no disponible: elige el precio'); return; }
+  scanner = new Html5Qrcode('reader');
+  scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, t => { pararScanner(); leerQR(t); }, () => {})
+    .catch(() => { scanner = null; toast('Sin permiso de cámara: elige el precio'); });
+}
+function elegirPrecio(p) {
+  pararScanner(); precioSel = p; $('vCant').value = 1; medioSel = C.medios[0]; pintarMedios();
+  $('pasoScan').hidden = true; $('pasoConf').hidden = false; $('vPrecio').textContent = fmt(p); calc();
+}
+function calc() { const c = Math.max(1, num($('vCant').value)); $('vDet').textContent = c + ' × ' + fmt(precioSel); $('vTotal').textContent = fmt(c * precioSel); }
+$('btnScan').addEventListener('click', () => { abrir('shVenta'); iniciarScanner(); });
+$('btnCancel').addEventListener('click', () => { pararScanner(); cerrar('shVenta'); });
+$('btnOtro').addEventListener('click', iniciarScanner);
+$('menos').addEventListener('click', () => { $('vCant').value = Math.max(1, num($('vCant').value) - 1); calc(); });
+$('mas').addEventListener('click', () => { $('vCant').value = num($('vCant').value) + 1; calc(); });
+$('vCant').addEventListener('input', calc);
+let registrando = false;
+$('btnReg').addEventListener('click', async () => {
+  if (registrando) return; registrando = true;
+  const cant = Math.max(1, num($('vCant').value)), ts = Date.now();
+  const v = { id: uid(), ts, fecha: dia(new Date(ts)), precio: precioSel, cant, total: cant * precioSel, medio: medioSel, uid: USER ? USER.uid : 'prueba' };
+  try { await guardarVenta(v); cerrar('shVenta'); toast('Venta registrada: ' + fmt(v.total)); }
+  catch (e) { toast('No se pudo guardar. Intenta de nuevo.'); }
+  registrando = false;
+});
+
+// Anular
+let porAnular = null;
+function pedirAnular(v) { porAnular = v; $('anTxt').textContent = v.cant + ' × ' + fmt(v.precio) + ' = ' + fmt(v.total) + ' · ' + v.medio; abrir('shAnular'); }
+$('anNo').addEventListener('click', () => cerrar('shAnular'));
+$('anSi').addEventListener('click', async () => { if (porAnular) await anularVenta(porAnular).catch(() => toast('No se pudo anular')); cerrar('shAnular'); toast('Venta anulada'); });
+
+// ---------- Cierre ----------
+$('fCierre').value = hoy();
+$('cBase').value = fmt(C.base);
+function resumenDia(f) {
+  const vs = validas().filter(v => v.fecha === f);
+  const porPrecio = {}, porMedio = {};
+  vs.forEach(v => { (porPrecio[v.precio] ??= { prendas: 0, valor: 0 }); porPrecio[v.precio].prendas += v.cant; porPrecio[v.precio].valor += v.total;
+    porMedio[v.medio] = (porMedio[v.medio] || 0) + v.total; });
+  return { vs, porPrecio, porMedio, total: vs.reduce((a, v) => a + v.total, 0), prendas: vs.reduce((a, v) => a + v.cant, 0), clientas: clientas.filter(c => c.fecha === f).length };
+}
+function filas(tbody, rows) { tbody.textContent = ''; rows.forEach(r => { const tr = document.createElement('tr'); r.forEach((c, i) => { const td = document.createElement('td'); td.textContent = c; if (i) td.className = 'n'; tr.append(td); }); tbody.append(tr); }); }
+function renderCierre() {
+  const f = $('fCierre').value || hoy(), r = resumenDia(f), cz = cierres[f];
+  $('cTotal').textContent = fmt(r.total);
+  $('cResumen').textContent = r.prendas + ' prendas · ' + r.vs.length + ' ventas' + (C.contarClientas ? ' · ' + r.clientas + ' clientas' : '');
+  filas($('cPrecio'), C.precios.filter(p => r.porPrecio[p]).map(p => [fmt(p), r.porPrecio[p].prendas, fmt(r.porPrecio[p].valor)]));
+  filas($('cMedio'), C.medios.map(m => [m, fmt(r.porMedio[m] || 0)]));
+  if (cz && document.activeElement !== $('cContado')) { $('cBase').value = fmt(cz.base); $('cContado').value = fmt(cz.contado); }
+  const base = num($('cBase').value), efec = r.porMedio['Efectivo'] || 0, debe = base + efec;
+  $('cEfec').textContent = fmt(efec); $('cDebe').textContent = fmt(debe);
+  const cont = $('cContado').value === '' ? null : num($('cContado').value);
+  const dif = cont === null ? null : cont - debe;
+  $('cDif').className = dif === null ? 'note' : dif === 0 ? 'okt' : 'badt';
+  $('cDif').textContent = dif === null ? 'Escribe el efectivo contado para cuadrar.' : dif === 0 ? 'Cuadra: diferencia $0' : (dif > 0 ? 'Sobran ' : 'Faltan ') + fmt(Math.abs(dif));
+  $('cEstado').textContent = cz ? 'Día cerrado el ' + new Date(cz.ts).toLocaleString('es-CO') + '. Puedes volver a descargarlo.' : '';
+  return { f, r, base, efec, debe, cont, dif };
+}
+['fCierre', 'cBase', 'cContado'].forEach(id => $(id).addEventListener('input', renderCierre));
+['cBase', 'cContado'].forEach(id => $(id).addEventListener('blur', () => { if ($(id).value !== '') $(id).value = fmt(num($(id).value)); }));
+
+function hojaVentas(vs) {
+  return vs.map(v => { const t = new Date(v.ts); return { Fecha: v.fecha, Hora: pad(t.getHours()) + ':' + pad(t.getMinutes()), 'Día': DIAS[t.getDay()], Precio: v.precio, Cantidad: v.cant, Total: v.total, 'Medio de pago': v.medio }; });
+}
+function ws(rows, cols) { const s = XLSX.utils.json_to_sheet(rows); s['!cols'] = cols.map(w => ({ wch: w })); return s; }
+$('btnCerrar').addEventListener('click', async () => {
+  if (!window.XLSX) { toast('No cargó el generador de Excel'); return; }
+  const x = renderCierre();
+  if (x.cont === null) { toast('Primero escribe el efectivo contado'); $('cContado').focus(); return; }
+  const wb = XLSX.utils.book_new();
+  const res = [{ Concepto: 'Fecha', Valor: x.f }, { Concepto: 'Total vendido', Valor: x.r.total }, { Concepto: 'Prendas', Valor: x.r.prendas }, { Concepto: 'Ventas', Valor: x.r.vs.length }];
+  if (C.contarClientas) res.push({ Concepto: 'Clientas', Valor: x.r.clientas });
+  res.push({ Concepto: 'Base inicial', Valor: x.base }, { Concepto: 'Efectivo vendido', Valor: x.efec }, { Concepto: 'Debe haber', Valor: x.debe }, { Concepto: 'Efectivo contado', Valor: x.cont }, { Concepto: 'Diferencia', Valor: x.dif });
+  XLSX.utils.book_append_sheet(wb, ws(res, [20, 16]), 'Resumen');
+  XLSX.utils.book_append_sheet(wb, ws(C.precios.filter(p => x.r.porPrecio[p]).map(p => ({ Precio: p, Prendas: x.r.porPrecio[p].prendas, Valor: x.r.porPrecio[p].valor })), [12, 10, 14]), 'Por precio');
+  XLSX.utils.book_append_sheet(wb, ws(C.medios.map(m => ({ 'Medio de pago': m, Valor: x.r.porMedio[m] || 0 })), [18, 14]), 'Por medio de pago');
+  XLSX.utils.book_append_sheet(wb, ws(hojaVentas(x.r.vs), [12, 8, 6, 10, 9, 12, 16]), 'Ventas');
+  XLSX.writeFile(wb, 'Carpa_Antoca_' + x.f + '.xlsx');
+  try { await guardarCierre({ fecha: x.f, ts: Date.now(), uid: USER ? USER.uid : 'prueba', total: x.r.total, prendas: x.r.prendas, ventas: x.r.vs.length, base: x.base, efectivo: x.efec, contado: x.cont, diferencia: x.dif }); toast('Día cerrado'); renderCierre(); avisarCierre(x.f); }
+  catch (e) { toast('Excel listo, pero el cierre no se guardó'); }
+});
+
+// Avisa al script de Google para que envíe el correo del día (él verifica el cierre en Firebase).
+function avisarCierre(fecha) {
+  if (!C.avisoCierre || !db) return;
+  fetch(C.avisoCierre, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ fecha }) })
+    .then(() => toast('Día cerrado · informe enviándose por correo'), () => toast('Día cerrado · el correo saldrá a las 11 p. m.'));
+}
+
+// ---------- Informe ----------
+const charts = {};
+function chart(id, type, labels, data, opts = {}) {
+  if (!window.Chart) return;
+  charts[id]?.destroy();
+  const max = Math.max(...data, 0);
+  charts[id] = new Chart($(id), { type, data: { labels, datasets: [{ data, backgroundColor: data.map(v => v === max && max > 0 ? '#3A2E28' : '#CFC4B8'), borderRadius: 5 }] },
+    options: Object.assign({ maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => opts.money ? fmt(c.raw) : String(c.raw) } } },
+      scales: { x: { grid: { display: false } }, y: { beginAtZero: true, ticks: { callback: v => opts.money ? (v >= 1e6 ? (v / 1e6).toFixed(1) + ' M' : Math.round(v / 1000) + ' mil') : v } } } }, opts.extra || {}) });
+}
+function desdeRango() { const n = Number($('rango').value); if (!n) return ''; const d = new Date(); d.setDate(d.getDate() - n + 1); return dia(d); }
+const enRango = () => { const desde = desdeRango(); return validas().filter(v => v.fecha >= desde); };
+function agregados(vs) {
+  const porDia = {}, porPrecio = {}, porSem = [0, 0, 0, 0, 0, 0, 0], diasSem = [new Set(), new Set(), new Set(), new Set(), new Set(), new Set(), new Set()], porHora = {};
+  vs.forEach(v => { const t = new Date(v.ts), w = t.getDay(), h = t.getHours();
+    (porDia[v.fecha] ??= { total: 0, prendas: 0, ventas: 0 }); porDia[v.fecha].total += v.total; porDia[v.fecha].prendas += v.cant; porDia[v.fecha].ventas++;
+    (porPrecio[v.precio] ??= { prendas: 0, valor: 0 }); porPrecio[v.precio].prendas += v.cant; porPrecio[v.precio].valor += v.total;
+    porSem[w]++; diasSem[w].add(v.fecha); porHora[h] = (porHora[h] || 0) + 1; });
+  return { porDia, porPrecio, porSem, diasSem, porHora };
+}
+function renderInforme() {
+  const vs = enRango(), a = agregados(vs), fechas = Object.keys(a.porDia).sort();
+  const total = vs.reduce((s, v) => s + v.total, 0);
+  $('kTotal').textContent = fmt(total); $('kProm').textContent = fmt(fechas.length ? total / fechas.length : 0); $('kPrendas').textContent = vs.reduce((s, v) => s + v.cant, 0);
+  chart('chDia', 'bar', fechas.map(f => f.slice(5)), fechas.map(f => a.porDia[f].total), { money: true });
+  const precios = Object.keys(a.porPrecio).map(Number).sort((x, y) => a.porPrecio[y].prendas - a.porPrecio[x].prendas);
+  chart('chPrecio', 'bar', precios.map(fmt), precios.map(p => a.porPrecio[p].prendas), { extra: { indexAxis: 'y', scales: { x: { beginAtZero: true }, y: { grid: { display: false } } } } });
+  const orden = [1, 2, 3, 4, 5, 6, 0]; // lunes a domingo
+  const prom = orden.map(w => a.diasSem[w].size ? +(a.porSem[w] / a.diasSem[w].size).toFixed(1) : 0);
+  chart('chSemana', 'bar', orden.map(w => DIAS[w]), prom);
+  const desde = desdeRango(), nCl = clientas.filter(c => c.fecha >= desde).length;
+  const cl = ' Clientas contadas en el rango: ' + nCl + (nCl ? ' (compraron ' + Math.round(100 * vs.length / nCl) + ' de cada 100).' : '.');
+  $('semNota').textContent = 'Promedio de ventas por cada día de la semana abierto.' + (C.contarClientas ? cl : '');
+  const horas = Object.keys(a.porHora).map(Number).sort((x, y) => x - y);
+  chart('chHora', 'bar', horas.map(h => (h % 12 || 12) + (h < 12 ? ' a. m.' : ' p. m.')), horas.map(h => a.porHora[h]));
+}
+$('rango').addEventListener('change', renderInforme);
+$('btnConsol').addEventListener('click', () => {
+  if (!window.XLSX) { toast('No cargó el generador de Excel'); return; }
+  const vs = validas(), a = agregados(vs), fechas = Object.keys(a.porDia).sort();
+  const wb = XLSX.utils.book_new();
+  let acum = 0;
+  const diario = fechas.map(f => { acum += a.porDia[f].total; const c = cierres[f]; const w = new Date(f + 'T12:00:00').getDay();
+    const row = { Fecha: f, 'Día': DIAS[w], Ventas: a.porDia[f].ventas, Prendas: a.porDia[f].prendas, Total: a.porDia[f].total, Acumulado: acum };
+    vs.filter(v => v.fecha === f).forEach(v => row[v.medio] = (row[v.medio] || 0) + v.total);
+    if (C.contarClientas) row.Clientas = clientas.filter(x => x.fecha === f).length;
+    row['Diferencia caja'] = c ? c.diferencia : ''; return row; });
+  XLSX.utils.book_append_sheet(wb, ws(diario, [12, 6, 8, 8, 12, 14, 12, 12, 14, 12, 10, 14]), 'Consolidado diario');
+  XLSX.utils.book_append_sheet(wb, ws(Object.keys(a.porPrecio).map(Number).sort((x, y) => x - y).map(p => ({ Precio: p, Prendas: a.porPrecio[p].prendas, Valor: a.porPrecio[p].valor })), [12, 10, 14]), 'Por precio');
+  XLSX.utils.book_append_sheet(wb, ws([1, 2, 3, 4, 5, 6, 0].map(w => ({ 'Día': DIAS[w], 'Días abiertos': a.diasSem[w].size, Ventas: a.porSem[w], 'Promedio ventas': a.diasSem[w].size ? +(a.porSem[w] / a.diasSem[w].size).toFixed(1) : 0 })), [8, 14, 10, 16]), 'Por día de semana');
+  XLSX.utils.book_append_sheet(wb, ws(Object.keys(a.porHora).map(Number).sort((x, y) => x - y).map(h => ({ Hora: pad(h) + ':00', Ventas: a.porHora[h] })), [8, 10]), 'Por hora');
+  XLSX.utils.book_append_sheet(wb, ws(hojaVentas(vs), [12, 8, 6, 10, 9, 12, 16]), 'Todas las ventas');
+  XLSX.writeFile(wb, 'Carpa_Antoca_consolidado_' + hoy() + '.xlsx');
+});
+
+// ---------- Usuarios ----------
+const NOMROL = { principal: 'Principal', admin: 'Administrador', vendedora: 'Vendedora' };
+function puedeGestionar(u) { return u.rol !== 'principal' && u.uid !== USER?.uid && (esPrincipal() || u.rol === 'vendedora'); }
+function renderUsuarios() {
+  const box = $('uLista'); box.textContent = '';
+  const h = document.createElement('h2'); h.style.fontSize = '16px'; h.textContent = 'Personas con acceso'; box.append(h);
+  if (!db) { const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Disponible cuando se conecte Firebase.'; box.append(p); $('fUser').hidden = true; return; }
+  const orden = { principal: 0, admin: 1, vendedora: 2 };
+  usuarios.slice().sort((a, b) => orden[a.rol] - orden[b.rol] || String(a.nombre).localeCompare(b.nombre)).forEach(u => {
+    const row = document.createElement('div'); row.className = 'it'; if (!u.activo) row.style.opacity = '.5';
+    const l = document.createElement('div'); const b = document.createElement('b'); b.textContent = u.nombre || u.email;
+    const sm = document.createElement('small'); sm.textContent = NOMROL[u.rol] + ' · ' + (u.email || '') + (u.activo ? '' : ' · desactivado'); l.append(b, sm); row.append(l);
+    const acc = document.createElement('div'); acc.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end';
+    if (u.email && !/@carpa\.antoca$/.test(u.email) && (u.uid === USER?.uid || puedeGestionar(u))) {
+      const r = document.createElement('button'); r.type = 'button'; r.className = 'link'; r.textContent = 'Clave';
+      r.addEventListener('click', () => firebase.auth().sendPasswordResetEmail(u.email).then(() => toast('Enlace enviado a ' + u.email), () => toast('No se pudo enviar')));
+      acc.append(r);
+    }
+    if (puedeGestionar(u)) {
+      const t = document.createElement('button'); t.type = 'button'; t.className = 'sec'; t.style.minHeight = '40px'; t.textContent = u.activo ? 'Desactivar' : 'Activar';
+      t.addEventListener('click', () => db.collection('usuarios').doc(u.uid).update({ activo: !u.activo }).then(() => toast(u.activo ? 'Acceso quitado' : 'Acceso devuelto'), () => toast('No tienes permiso para eso')));
+      acc.append(t);
+    }
+    row.append(acc); box.append(row);
+  });
+}
+let alta = null;
+$('fUser').addEventListener('submit', async e => {
+  e.preventDefault(); if (!db) return;
+  const rol = $('uRol').value;
+  if (rol === 'admin' && !esPrincipal()) { $('uMsg').textContent = 'Solo la cuenta principal crea administradores.'; return; }
+  $('btnUser').disabled = true; $('uMsg').textContent = 'Creando…';
+  try {
+    alta = alta || firebase.initializeApp(C.firebase, 'alta'); // segunda sesión: crear la cuenta sin cerrar la tuya
+    const cred = await alta.auth().createUserWithEmailAndPassword($('uMail').value.trim(), $('uPass').value);
+    await db.collection('usuarios').doc(cred.user.uid).set({ nombre: $('uNom').value.trim(), email: cred.user.email, rol, activo: true, creadoPor: USER.uid, ts: Date.now() });
+    await alta.auth().signOut();
+    $('uMsg').textContent = 'Listo: ' + $('uNom').value.trim() + ' ya puede entrar.'; $('fUser').reset();
+  } catch (err) {
+    $('uMsg').textContent = err.code === 'auth/email-already-in-use' ? 'Ese correo ya tiene cuenta.' : err.code === 'auth/weak-password' ? 'La contraseña debe tener mínimo 6 caracteres.' : 'No se pudo crear el usuario.';
+  }
+  $('btnUser').disabled = false;
+});
+
+// ---------- QR ----------
+C.precios.forEach(p => {
+  const d = document.createElement('div'); d.className = 'qr'; const box = document.createElement('div');
+  const b = document.createElement('b'); b.textContent = fmt(p); const s = document.createElement('span'); s.className = 'note'; s.textContent = 'Ántoca · Carpa';
+  d.append(box, b, s); $('qrs').append(d);
+  if (window.QRCode) new QRCode(box, { text: 'ANTOCA|' + p, width: 140, height: 140, correctLevel: QRCode.CorrectLevel.M });
+  else box.textContent = 'ANTOCA|' + p;
+});
+$('btnPrint').addEventListener('click', () => window.print());
+
+iniciarDatos();
+setInterval(() => { if ($('hoyTxt').textContent.slice(0, 10) !== hoy()) render(); }, 60000); // cambia de día sola
+}
+</script>
+</body>
+</html>
