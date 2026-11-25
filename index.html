@@ -166,6 +166,13 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
   <h2 style="font-size:20px">¿Anular esta venta?</h2><p id="anTxt" style="margin:0"></p>
   <div class="grid2"><button class="sec" type="button" id="anNo">No</button><button class="pri" type="button" id="anSi" style="background:var(--bad)">Sí, anular</button></div>
 </div></div>
+<!-- Hoja: confirmar cierre -->
+<div class="sheet" id="shCierre" role="dialog" aria-modal="true" aria-labelledby="ttlCierre"><div class="panel">
+  <h2 id="ttlCierre" style="font-size:20px">¿Cerrar el día?</h2>
+  <table><tbody id="ccTabla"></tbody></table>
+  <p class="note" id="ccAviso" style="margin:0"></p>
+  <div class="grid2"><button class="sec" type="button" id="ccNo">Revisar otra vez</button><button class="pri" type="button" id="ccSi">Sí, cerrar el día</button></div>
+</div></div>
 <div class="toast" id="toast"></div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
@@ -410,10 +417,28 @@ function hojaVentas(vs) {
   return vs.map(v => { const t = new Date(v.ts); return { Fecha: v.fecha, Hora: pad(t.getHours()) + ':' + pad(t.getMinutes()), 'Día': DIAS[t.getDay()], Precio: v.precio, Cantidad: v.cant, Total: v.total, 'Medio de pago': v.medio }; });
 }
 function ws(rows, cols) { const s = XLSX.utils.json_to_sheet(rows); s['!cols'] = cols.map(w => ({ wch: w })); return s; }
-$('btnCerrar').addEventListener('click', async () => {
+// Confirmación extra antes de cerrar: muestra el resumen y exige tocar "Sí, cerrar el día".
+$('btnCerrar').addEventListener('click', () => {
   if (!window.XLSX) { toast('No cargó el generador de Excel'); return; }
   const x = renderCierre();
   if (x.cont === null) { toast('Primero escribe el efectivo contado'); $('cContado').focus(); return; }
+  if (!x.r.vs.length) { toast('No hay ventas registradas ese día'); return; }
+  const filasC = [['Fecha', x.f], ['Ventas', x.r.vs.length + ' · ' + x.r.prendas + ' prendas'], ['Total vendido', fmt(x.r.total)]]
+    .concat(C.medios.map(m => [m, fmt(x.r.porMedio[m] || 0)]))
+    .concat([['Debe haber en efectivo', fmt(x.debe)], ['Efectivo contado', fmt(x.cont)], ['Diferencia', x.dif === 0 ? 'Cuadra' : (x.dif > 0 ? 'Sobran ' : 'Faltan ') + fmt(Math.abs(x.dif))]]);
+  filas($('ccTabla'), filasC);
+  $('ccAviso').textContent = (cierres[x.f] ? 'Este día ya se había cerrado: se reemplaza el cierre anterior. ' : '') + 'Al confirmar se envía el informe por correo y no se puede deshacer.';
+  abrir('shCierre');
+});
+$('ccNo').addEventListener('click', () => cerrar('shCierre'));
+let cerrando = false;
+$('ccSi').addEventListener('click', async () => {
+  if (cerrando) return; cerrando = true; $('ccSi').disabled = true;
+  cerrar('shCierre');
+  try { await cerrarDia(); } finally { cerrando = false; $('ccSi').disabled = false; }
+});
+async function cerrarDia() {
+  const x = renderCierre();
   const wb = XLSX.utils.book_new();
   const res = [{ Concepto: 'Fecha', Valor: x.f }, { Concepto: 'Total vendido', Valor: x.r.total }, { Concepto: 'Prendas', Valor: x.r.prendas }, { Concepto: 'Ventas', Valor: x.r.vs.length }];
   if (C.contarClientas) res.push({ Concepto: 'Clientas', Valor: x.r.clientas });
@@ -425,7 +450,7 @@ $('btnCerrar').addEventListener('click', async () => {
   XLSX.writeFile(wb, 'Carpa_Antoca_' + x.f + '.xlsx');
   try { await guardarCierre({ fecha: x.f, ts: Date.now(), uid: USER ? USER.uid : 'prueba', total: x.r.total, prendas: x.r.prendas, ventas: x.r.vs.length, base: x.base, efectivo: x.efec, contado: x.cont, diferencia: x.dif }); toast('Día cerrado'); renderCierre(); avisarCierre(x.f); }
   catch (e) { toast('Excel listo, pero el cierre no se guardó'); }
-});
+}
 
 // Avisa al script de Google para que envíe el correo del día (él verifica el cierre en Firebase).
 function avisarCierre(fecha) {
