@@ -1,7 +1,7 @@
 // Carpa Ántoca – guarda la app en el celular para que abra sin señal.
 // Archivos propios: primero internet (para recibir actualizaciones) y, si no hay, la copia guardada.
 // Librerías y fuentes externas: primero la copia guardada.
-const CACHE = 'carpa-v1';
+const CACHE = 'carpa-v2';
 const PROPIOS = ['./', './index.html', './config.js', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 const EXTERNOS = [
@@ -17,7 +17,9 @@ const CACHEABLES = ['unpkg.com', 'cdnjs.cloudflare.com', 'www.gstatic.com', 'fon
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(
-    [...PROPIOS, ...EXTERNOS].map(u => c.add(new Request(u, { mode: u.startsWith('http') ? 'no-cors' : 'same-origin' })).catch(() => {}))
+    // cache.add rechaza respuestas «opacas» de otros sitios: por eso se descarga y se guarda con put.
+    [...PROPIOS.map(u => c.add(u).catch(() => {})),
+     ...EXTERNOS.map(u => fetch(u, { mode: 'no-cors' }).then(r => c.put(u, r)).catch(() => {}))]
   )).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
