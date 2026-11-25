@@ -168,6 +168,12 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
   <h2 style="font-size:20px">¿Anular esta venta?</h2><p id="anTxt" style="margin:0"></p>
   <div class="grid2"><button class="sec" type="button" id="anNo">No</button><button class="pri" type="button" id="anSi" style="background:var(--bad)">Sí, anular</button></div>
 </div></div>
+<!-- Hoja: eliminar venta anulada -->
+<div class="sheet" id="shEliminar" role="dialog" aria-modal="true" aria-labelledby="ttlEl"><div class="panel">
+  <h2 id="ttlEl" style="font-size:20px">¿Eliminar esta venta anulada?</h2><p id="elTxt" style="margin:0"></p>
+  <p class="note" style="margin:0">Se borra para siempre y no se puede recuperar.</p>
+  <div class="grid2"><button class="sec" type="button" id="elNo">No</button><button class="pri" type="button" id="elSi" style="background:var(--bad)">Sí, eliminar</button></div>
+</div></div>
 <!-- Hoja: confirmar cierre -->
 <div class="sheet" id="shCierre" role="dialog" aria-modal="true" aria-labelledby="ttlCierre"><div class="panel">
   <h2 id="ttlCierre" style="font-size:20px">¿Cerrar el día?</h2>
@@ -349,6 +355,7 @@ function render() {
     s.textContent = v.medio + ' · ' + t.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) + (v.anulada ? ' · anulada' : '');
     l.append(b, s); const r = document.createElement('b'); r.textContent = fmt(v.total); row.append(l, r);
     if (!v.anulada && (esAdmin() || v.fecha === hoy())) row.addEventListener('click', () => pedirAnular(v));
+    else if (v.anulada && esAdmin()) row.addEventListener('click', () => pedirEliminar(v));
     lista.append(row);
   });
   if ($('v-cierre').classList.contains('on')) renderCierre();
@@ -404,6 +411,18 @@ $('btnReg').addEventListener('click', async () => {
 let porAnular = null;
 function pedirAnular(v) { porAnular = v; $('anTxt').textContent = v.cant + ' × ' + fmt(v.precio) + ' = ' + fmt(v.total) + ' · ' + v.medio; abrir('shAnular'); }
 $('anNo').addEventListener('click', () => cerrar('shAnular'));
+
+// Eliminar definitivamente (solo administradores y solo ventas ya anuladas)
+let porEliminar = null;
+function pedirEliminar(v) { porEliminar = v; $('elTxt').textContent = v.cant + ' × ' + fmt(v.precio) + ' = ' + fmt(v.total) + ' · ' + v.medio + ' · anulada'; abrir('shEliminar'); }
+$('elNo').addEventListener('click', () => cerrar('shEliminar'));
+$('elSi').addEventListener('click', () => {
+  if (!porEliminar || !esAdmin()) return;
+  const v = porEliminar; porEliminar = null; cerrar('shEliminar');
+  if (db) enCola(db.collection('ventas').doc(v.id).delete());
+  else { ventas = ventas.filter(x => x.id !== v.id); LS.set('carpa_ventas', ventas); render(); }
+  toast('Venta eliminada');
+});
 $('anSi').addEventListener('click', async () => { if (porAnular) await anularVenta(porAnular).catch(() => toast('No se pudo anular')); cerrar('shAnular'); toast('Venta anulada'); });
 
 // ---------- Cierre ----------

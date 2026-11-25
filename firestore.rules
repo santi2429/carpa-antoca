@@ -44,7 +44,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['anulada', 'anuladaTs', 'anuladaPor'])
         && request.resource.data.anulada == true
         && request.resource.data.anuladaPor == request.auth.uid;
-      allow delete: if false;
+      // Solo un administrador puede borrar, y solo ventas que ya estén anuladas.
+      allow delete: if admin() && resource.data.anulada == true;
     }
 
     // ---- Contador de clientas ----
