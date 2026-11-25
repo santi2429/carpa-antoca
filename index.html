@@ -141,7 +141,7 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
 
 <nav class="noprint" id="nav" hidden>
   <button type="button" data-v="vender" class="on">Vender</button>
-  <button type="button" data-v="cierre">Cierre</button>
+  <button type="button" data-v="cierre" class="adm">Cierre</button>
   <button type="button" data-v="informe" class="adm">Informe</button>
   <button type="button" data-v="qr" class="adm">QR</button>
   <button type="button" data-v="usuarios" class="adm">Usuarios</button>
@@ -222,7 +222,7 @@ function mostrar(v) {
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x.dataset.v === v));
 }
 function aplicarRol(nombre) {
-  $('nav').hidden = false;
+  $('nav').hidden = !esAdmin(); // la vendedora solo usa Vender: sin menú
   document.querySelectorAll('.adm').forEach(e => e.hidden = !esAdmin());
   $('fCierre').disabled = !esAdmin(); if (!esAdmin()) $('fCierre').value = hoy();
   $('quien').textContent = nombre + (ROLES[ROL] ? ' (' + ROLES[ROL] + ')' : '');
@@ -240,8 +240,6 @@ function suscribir() {
   if (esAdmin()) {
     subs.push(db.collection('cierres').onSnapshot(s => { cierres = {}; s.docs.forEach(d => cierres[d.id] = d.data()); renderCierre(); }, () => {}));
     subs.push(db.collection('usuarios').onSnapshot(s => { usuarios = s.docs.map(d => ({ uid: d.id, ...d.data() })); renderUsuarios(); }, () => {}));
-  } else {
-    subs.push(db.collection('cierres').doc(hoy()).onSnapshot(d => { cierres = {}; if (d.exists) cierres[d.id] = d.data(); renderCierre(); }, () => {}));
   }
 }
 function iniciarDatos() {
@@ -419,6 +417,7 @@ function hojaVentas(vs) {
 function ws(rows, cols) { const s = XLSX.utils.json_to_sheet(rows); s['!cols'] = cols.map(w => ({ wch: w })); return s; }
 // Confirmación extra antes de cerrar: muestra el resumen y exige tocar "Sí, cerrar el día".
 $('btnCerrar').addEventListener('click', () => {
+  if (!esAdmin()) { toast('Solo un administrador puede cerrar el día'); return; }
   if (!window.XLSX) { toast('No cargó el generador de Excel'); return; }
   const x = renderCierre();
   if (x.cont === null) { toast('Primero escribe el efectivo contado'); $('cContado').focus(); return; }

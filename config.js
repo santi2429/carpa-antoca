@@ -4,7 +4,7 @@ window.CARPA_CONFIG = {
   medios: ['Efectivo', 'Transferencia'],
   base: 200000,                                               
   contarClientas: false,                                       
-  avisoCierre: '', // PENDIENTE: URL de la aplicación web de Apps Script
+  avisoCierre: 'https://script.google.com/macros/s/AKfycbzZ3lbuXo7KeR6W1MvQGwzj-coGH0m-Y6lSZgK3Pj_NTEq6yoxjfQIUcJB6uvcJ6FzzbQ/exec',
   firebase: {
     apiKey: 'AIzaSyAtxvHva2yc60LNXYnInDJb5rmPtDHQq0U',
     authDomain: 'carpa-antoca.firebaseapp.com',
