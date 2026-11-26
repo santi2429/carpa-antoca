@@ -1,7 +1,7 @@
 // Carpa Ántoca – guarda la app en el celular para que abra sin señal.
 // Archivos propios: primero internet (para recibir actualizaciones) y, si no hay, la copia guardada.
 // Librerías y fuentes externas: primero la copia guardada.
-const CACHE = 'carpa-v2';
+const CACHE = 'carpa-v3';
 const PROPIOS = ['./', './index.html', './config.js', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
 const EXTERNOS = [

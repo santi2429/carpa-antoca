@@ -49,7 +49,7 @@ td.n,th.n{text-align:right;white-space:nowrap}tr+tr td{border-top:1px solid var(
 .note{font-size:12px;color:var(--mute)}.okt{color:var(--ok);font-weight:600}.badt{color:var(--bad);font-weight:600}
 nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:#fff;border-top:1px solid var(--stone);padding-bottom:env(safe-area-inset-bottom);z-index:5}
 nav[hidden],[hidden]{display:none!important}
-nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px;color:var(--mute)}nav button.on{color:var(--ink);font-weight:600}
+nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:13px;color:var(--mute);padding:0 2px}nav button.on{color:var(--ink);font-weight:600}
 .sheet{position:fixed;inset:0;background:rgba(31,27,24,.55);display:none;align-items:flex-end;justify-content:center;z-index:10}.sheet.on{display:flex}
 .panel{background:var(--bg);width:100%;max-width:520px;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;max-height:94vh;overflow:auto}
 #reader{width:100%;border-radius:14px;overflow:hidden;background:#000;min-height:260px}
@@ -131,6 +131,20 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
     <button class="pri" id="btnConsol" type="button">Descargar Excel del periodo</button>
   </section>
 
+  <!-- INVENTARIO -->
+  <section id="v-inventario" class="view">
+    <div class="top"><h1 style="font-size:24px">Inventario</h1><span class="sub">Prendas en la carpa</span></div>
+    <div class="hero"><span style="font-size:13px;color:#D9CFC5">Hay ahora</span><span class="big" id="invTotal">—</span><div class="row"><span id="invDet"></span></div></div>
+    <div class="grid2">
+      <button class="pri" type="button" id="btnSurtido" style="min-height:56px;font-size:16px">+ Llegó mercancía</button>
+      <button class="sec" type="button" id="btnConteo" style="min-height:56px">Hacer conteo</button>
+    </div>
+    <div class="card"><h2 style="font-size:16px">Día a día</h2>
+      <table class="stack"><thead><tr><th>Fecha</th><th class="n">Inicio</th><th class="n">+ Surtido</th><th class="n">− Vendidas</th><th class="n">Final</th></tr></thead><tbody id="invDias"></tbody></table>
+      <span class="note">Últimos 14 días desde el último conteo.</span></div>
+    <div class="card"><h2 style="font-size:16px">Movimientos</h2><div class="list" id="invMov"></div></div>
+  </section>
+
   <!-- USUARIOS -->
   <section id="v-usuarios" class="view">
     <div class="top"><h1 style="font-size:24px">Usuarios</h1></div>
@@ -159,6 +173,7 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
   <button type="button" data-v="cierre" class="adm">Cierre</button>
   <button type="button" data-v="informe" class="adm">Informe</button>
   <button type="button" data-v="qr" class="adm">QR</button>
+  <button type="button" data-v="inventario" class="adm">Inventario</button>
   <button type="button" data-v="usuarios" class="adm">Usuarios</button>
 </nav>
 
@@ -194,6 +209,17 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
   <h2 id="ttlEl" style="font-size:20px">¿Eliminar esta venta anulada?</h2><p id="elTxt" style="margin:0"></p>
   <p class="note" style="margin:0">Se borra para siempre y no se puede recuperar.</p>
   <div class="grid2"><button class="sec" type="button" id="elNo">No</button><button class="pri" type="button" id="elSi" style="background:var(--bad)">Sí, eliminar</button></div>
+</div></div>
+<!-- Hoja: surtido / conteo -->
+<div class="sheet" id="shInv" role="dialog" aria-modal="true" aria-labelledby="ttlInv"><div class="panel">
+  <h2 id="ttlInv" style="font-size:20px"></h2>
+  <p class="note" id="invAyuda" style="margin:0"></p>
+  <label for="invCant" class="sub">Cantidad de prendas</label>
+  <input class="f" id="invCant" inputmode="numeric" style="font:600 28px Jost,sans-serif;height:60px;text-align:center">
+  <span id="invDif" class="sub"></span>
+  <label for="invNota" class="sub">Nota (opcional)</label>
+  <input class="f" id="invNota" maxlength="80" placeholder="Ej. surtido de bodega, conteo de la mañana">
+  <div class="grid2"><button class="sec" type="button" id="invNo">Cancelar</button><button class="pri" type="button" id="invSi">Guardar</button></div>
 </div></div>
 <!-- Hoja: confirmar cierre -->
 <div class="sheet" id="shCierre" role="dialog" aria-modal="true" aria-labelledby="ttlCierre"><div class="panel">
@@ -280,6 +306,7 @@ function suscribir() {
   if (esAdmin()) {
     subs.push(db.collection('cierres').onSnapshot(s => { cierres = {}; s.docs.forEach(d => cierres[d.id] = d.data()); renderCierre(); }, () => {}));
     subs.push(db.collection('usuarios').onSnapshot(s => { usuarios = s.docs.map(d => ({ uid: d.id, ...d.data() })); renderUsuarios(); }, () => {}));
+    subs.push(db.collection('inventario').orderBy('ts').onSnapshot(s => { movInv = s.docs.map(d => ({ id: d.id, ...d.data() })); renderInventario(); }, () => {}));
   }
 }
 function iniciarDatos() {
@@ -351,11 +378,13 @@ document.querySelectorAll('nav button').forEach(b => b.addEventListener('click',
   if (b.dataset.v === 'informe') renderInforme();
   if (b.dataset.v === 'cierre') renderCierre();
   if (b.dataset.v === 'usuarios') renderUsuarios();
+  if (b.dataset.v === 'inventario') renderInventario();
   window.scrollTo(0, 0);
 }));
 
 // ---------- Vender ----------
 function render() {
+  if (typeof renderInventario === 'function' && esAdmin()) try { renderInventario(); } catch (e) {}
   const f = hoy(), vs = validas().filter(v => v.fecha === f);
   const d = new Date();
   $('hoyTxt').textContent = f + ' · ' + DIAS[d.getDay()].toLowerCase();
@@ -677,6 +706,84 @@ $('btnConsol').addEventListener('click', () => {
 // ---------- Usuarios ----------
 const NOMROL = { principal: 'Principal', admin: 'Administrador', vendedora: 'Vendedora' };
 function puedeGestionar(u) { return u.rol !== 'principal' && u.uid !== USER?.uid && (esPrincipal() || u.rol === 'vendedora'); }
+// ---------- Inventario general (solo cantidad de prendas) ----------
+// Parte del último CONTEO (lo que se contó físicamente), suma los SURTIDOS posteriores y resta las prendas VENDIDAS después.
+let movInv = [];
+function calcInventario() {
+  const conteos = movInv.filter(m => m.tipo === 'conteo');
+  const base = conteos[conteos.length - 1];
+  if (!base) return null;
+  const surt = movInv.filter(m => m.tipo === 'surtido' && m.ts > base.ts);
+  const vend = validas().filter(v => v.ts > base.ts);
+  const s = surt.reduce((a, m) => a + m.cant, 0), v = vend.reduce((a, x) => a + x.cant, 0);
+  return { base, surtido: s, vendidas: v, total: base.cant + s - v, surt, vend };
+}
+function renderInventario() {
+  if (!$('invTotal')) return;
+  const c = calcInventario();
+  if (!c) {
+    $('invTotal').textContent = '—';
+    $('invDet').textContent = 'Haz el primer conteo para empezar.';
+  } else {
+    $('invTotal').textContent = c.total + (c.total === 1 ? ' prenda' : ' prendas');
+    $('invDet').textContent = 'Conteo ' + c.base.fecha + ': ' + c.base.cant + ' · + ' + c.surtido + ' surtido · − ' + c.vendidas + ' vendidas';
+  }
+  // Día a día desde el último conteo (máx. 14 días)
+  const dias = [];
+  if (c) {
+    const fechas = new Set([c.base.fecha, ...c.surt.map(m => m.fecha), ...c.vend.map(v => v.fecha), hoy()]);
+    let saldo = c.base.cant;
+    [...fechas].sort().forEach(f => {
+      const s = c.surt.filter(m => m.fecha === f).reduce((a, m) => a + m.cant, 0);
+      const v = c.vend.filter(x => x.fecha === f).reduce((a, x) => a + x.cant, 0);
+      const ini = saldo; saldo = saldo + s - v;
+      dias.push([f, ini, s, v, saldo]);
+    });
+  }
+  filas($('invDias'), dias.slice(-14).reverse().map(r => [r[0], r[1], r[2] ? '+' + r[2] : '0', r[3] ? '−' + r[3] : '0', r[4]]));
+  const box = $('invMov'); box.textContent = '';
+  if (!movInv.length) { const p = document.createElement('p'); p.className = 'note'; p.textContent = 'Sin movimientos todavía.'; box.append(p); }
+  movInv.slice().reverse().slice(0, 30).forEach(m => {
+    const row = document.createElement('div'); row.className = 'it';
+    const l = document.createElement('div'); const b = document.createElement('b');
+    b.textContent = m.tipo === 'conteo' ? 'Conteo: ' + m.cant + ' prendas' : 'Llegó mercancía: +' + m.cant;
+    const sm = document.createElement('small');
+    const quien = (usuarios.find(u => u.uid === m.uid) || {}).nombre || '';
+    sm.textContent = m.fecha + ' · ' + new Date(m.ts).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) + (quien ? ' · ' + quien : '') + (m.nota ? ' · ' + m.nota : '');
+    l.append(b, sm); row.append(l); box.append(row);
+  });
+}
+let invTipo = null;
+function abrirInv(tipo) {
+  if (!esAdmin()) return;
+  invTipo = tipo; $('invCant').value = ''; $('invNota').value = ''; $('invDif').textContent = '';
+  $('ttlInv').textContent = tipo === 'conteo' ? 'Hacer conteo' : 'Llegó mercancía';
+  $('invAyuda').textContent = tipo === 'conteo'
+    ? 'Cuenta todas las prendas que hay físicamente en la carpa. Desde este número se vuelve a calcular el inventario.'
+    : 'Cuántas prendas nuevas llegaron a la carpa. Se suman al inventario.';
+  abrir('shInv'); $('invCant').focus();
+}
+$('btnSurtido').addEventListener('click', () => abrirInv('surtido'));
+$('btnConteo').addEventListener('click', () => abrirInv('conteo'));
+$('invNo').addEventListener('click', () => cerrar('shInv'));
+$('invCant').addEventListener('input', () => {
+  if (invTipo !== 'conteo') return;
+  const c = calcInventario(), n = num($('invCant').value);
+  if (!c || $('invCant').value === '') { $('invDif').textContent = ''; return; }
+  const d = n - c.total;
+  $('invDif').className = d === 0 ? 'okt' : 'badt';
+  $('invDif').textContent = 'La app esperaba ' + c.total + '. ' + (d === 0 ? 'Cuadra.' : (d > 0 ? 'Sobran ' : 'Faltan ') + Math.abs(d) + ' prendas.');
+});
+$('invSi').addEventListener('click', () => {
+  const n = num($('invCant').value);
+  if ($('invCant').value === '' || (invTipo === 'surtido' && n <= 0)) { toast('Escribe la cantidad'); return; }
+  const ts = Date.now();
+  const m = { id: uid(), ts, fecha: dia(new Date(ts)), tipo: invTipo, cant: n, nota: $('invNota').value.trim().slice(0, 80), uid: USER ? USER.uid : 'prueba' };
+  if (db) enCola(db.collection('inventario').doc(m.id).set(m));
+  else { movInv.push(m); renderInventario(); }
+  cerrar('shInv'); toast(invTipo === 'conteo' ? 'Conteo guardado' : 'Surtido registrado: +' + n);
+});
+
 function renderUsuarios() {
   const box = $('uLista'); box.textContent = '';
   const h = document.createElement('h2'); h.style.fontSize = '16px'; h.textContent = 'Personas con acceso'; box.append(h);
