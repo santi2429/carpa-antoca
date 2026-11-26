@@ -35,7 +35,7 @@ service cloud.firestore {
     match /ventas/{id} {
       allow read: if admin() || (activo() && reciente(resource.data.ts));
       allow create: if activo()
-        && request.resource.data.keys().hasOnly(['id', 'ts', 'fecha', 'precio', 'cant', 'total', 'medio', 'uid', 'grupo'])
+        && request.resource.data.keys().hasOnly(['id', 'ts', 'fecha', 'precio', 'cant', 'total', 'medio', 'uid', 'grupo', 'pagos'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.cant is int && request.resource.data.cant > 0 && request.resource.data.cant < 500
         && request.resource.data.precio is int && request.resource.data.precio > 0

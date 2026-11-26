@@ -174,6 +174,11 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
     <div class="card" style="gap:4px"><span class="note">Prendas de esta venta</span><div class="list" id="carrito"></div></div>
     <button class="sec" type="button" id="btnOtro" style="min-height:56px;font-weight:600;border:1px dashed #8C7B6B;background:#fff">+ Escanear otro precio</button>
     <span class="sub">Medio de pago</span><div class="grid2" id="medios"></div>
+    <div id="mixtoBox" hidden style="display:flex;flex-direction:column;gap:6px">
+      <label for="mixEf" class="sub">¿Cuánto pagó en efectivo?</label>
+      <input class="f" id="mixEf" inputmode="numeric" placeholder="$0" style="font:600 22px Jost,sans-serif;height:56px">
+      <span class="sub" id="mixTr"></span>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--stone);padding-top:12px"><span class="sub" id="vDet"></span><span class="j" style="font-size:34px;font-weight:600" id="vTotal"></span></div>
     <button class="pri" type="button" id="btnReg">Registrar venta</button>
   </div>
@@ -384,7 +389,25 @@ const abrir = id => $(id).classList.add('on'), cerrar = id => $(id).classList.re
 C.precios.forEach(p => { const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = fmt(p); b.addEventListener('click', () => elegirPrecio(p)); $('preciosManual').append(b); });
 C.medios.forEach(m => { const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = m; b.dataset.m = m;
   b.addEventListener('click', () => { medioSel = m; pintarMedios(); }); $('medios').append(b); });
-const pintarMedios = () => $('medios').querySelectorAll('button').forEach(b => b.classList.toggle('sel', b.dataset.m === medioSel));
+if (C.medios.includes('Efectivo') && C.medios.length > 1) {   // pago dividido: parte en efectivo y el resto por el otro medio
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'opt'; b.textContent = 'Mixto'; b.dataset.m = 'Mixto';
+  b.style.gridColumn = '1 / -1';
+  b.addEventListener('click', () => { medioSel = 'Mixto'; pintarMedios(); $('mixEf').value = ''; calcMixto(); $('mixEf').focus(); }); $('medios').append(b);
+}
+const OTRO = C.medios.find(m => m !== 'Efectivo') || 'Transferencia';
+const pintarMedios = () => { $('medios').querySelectorAll('button').forEach(b => b.classList.toggle('sel', b.dataset.m === medioSel)); $('mixtoBox').hidden = medioSel !== 'Mixto'; };
+const totalCarrito = () => carrito.reduce((a, x) => a + x.cant * x.precio, 0);
+function calcMixto() {
+  const t = totalCarrito(), ef = num($('mixEf').value);
+  $('mixTr').className = ef > 0 && ef < t ? 'sub' : 'badt';
+  $('mixTr').textContent = !ef ? 'Escribe el efectivo; el resto va por ' + OTRO.toLowerCase() + '.'
+    : ef >= t ? 'El efectivo debe ser menor que el total (' + fmt(t) + '). Si pagó todo en efectivo, elige «Efectivo».'
+    : OTRO + ': ' + fmt(t - ef);
+}
+$('mixEf').addEventListener('input', calcMixto);
+$('mixEf').addEventListener('blur', () => { if ($('mixEf').value !== '') $('mixEf').value = fmt(num($('mixEf').value)); });
+// Cómo se pagó cada línea: { Efectivo: n, Transferencia: n }. Las ventas viejas no tienen «pagos».
+const pagosDe = v => v.pagos || { [v.medio]: v.total };
 
 function leerQR(txt) { // formato: ANTOCA|30000
   const m = /^ANTOCA\|(\d+)$/.exec(String(txt).trim());
@@ -443,6 +466,7 @@ function pintarCarrito() {
   const prendas = carrito.reduce((a, x) => a + x.cant, 0), total = carrito.reduce((a, x) => a + x.cant * x.precio, 0);
   $('vDet').textContent = prendas + (prendas === 1 ? ' prenda' : ' prendas');
   $('vTotal').textContent = fmt(total);
+  if (medioSel === 'Mixto') calcMixto();
 }
 $('btnScan').addEventListener('click', () => { carrito = []; abrir('shVenta'); iniciarScanner(); });
 $('btnCancel').addEventListener('click', () => { pararScanner(); carrito = []; cerrar('shVenta'); });
@@ -452,7 +476,16 @@ let registrando = false;
 $('btnReg').addEventListener('click', async () => {
   if (registrando || !carrito.length) return; registrando = true;
   const ts = Date.now(), grupo = uid(), fecha = dia(new Date(ts));
-  const lineas = carrito.map((it, i) => ({ id: grupo + '-' + i, grupo, ts: ts + i, fecha, precio: it.precio, cant: it.cant, total: it.cant * it.precio, medio: medioSel, uid: USER ? USER.uid : 'prueba' }));
+  let efRest = 0;
+  if (medioSel === 'Mixto') {
+    efRest = num($('mixEf').value);
+    if (!(efRest > 0 && efRest < totalCarrito())) { calcMixto(); toast('Revisa el efectivo del pago mixto'); registrando = false; return; }
+  }
+  const lineas = carrito.map((it, i) => {
+    const v = { id: grupo + '-' + i, grupo, ts: ts + i, fecha, precio: it.precio, cant: it.cant, total: it.cant * it.precio, medio: medioSel, uid: USER ? USER.uid : 'prueba' };
+    if (medioSel === 'Mixto') { const ef = Math.min(efRest, v.total); efRest -= ef; v.pagos = { Efectivo: ef, [OTRO]: v.total - ef }; }
+    return v;
+  });
   const total = lineas.reduce((a, v) => a + v.total, 0);
   try {
     if (db) { const b = db.batch(); lineas.forEach(v => b.set(db.collection('ventas').doc(v.id), v)); enCola(b.commit()); }
@@ -487,7 +520,7 @@ function resumenDia(f) {
   const vs = validas().filter(v => v.fecha === f);
   const porPrecio = {}, porMedio = {};
   vs.forEach(v => { (porPrecio[v.precio] ??= { prendas: 0, valor: 0 }); porPrecio[v.precio].prendas += v.cant; porPrecio[v.precio].valor += v.total;
-    porMedio[v.medio] = (porMedio[v.medio] || 0) + v.total; });
+    const pg = pagosDe(v); for (const m in pg) porMedio[m] = (porMedio[m] || 0) + pg[m]; });
   const nVentas = new Set(vs.map(v => v.grupo || v.id)).size;
   return { vs, nVentas, porPrecio, porMedio, total: vs.reduce((a, v) => a + v.total, 0), prendas: vs.reduce((a, v) => a + v.cant, 0), clientas: clientas.filter(c => c.fecha === f).length };
 }
@@ -512,7 +545,7 @@ function renderCierre() {
 ['cBase', 'cContado'].forEach(id => $(id).addEventListener('blur', () => { if ($(id).value !== '') $(id).value = fmt(num($(id).value)); }));
 
 function hojaVentas(vs) {
-  return vs.map(v => { const t = new Date(v.ts); return { Fecha: v.fecha, Hora: pad(t.getHours()) + ':' + pad(t.getMinutes()), 'Día': DIAS[t.getDay()], Precio: v.precio, Cantidad: v.cant, Total: v.total, 'Medio de pago': v.medio }; });
+  return vs.map(v => { const t = new Date(v.ts); return { Fecha: v.fecha, Hora: pad(t.getHours()) + ':' + pad(t.getMinutes()), 'Día': DIAS[t.getDay()], Precio: v.precio, Cantidad: v.cant, Total: v.total, 'Medio de pago': v.pagos ? 'Mixto (' + Object.keys(v.pagos).map(m => m + ' ' + v.pagos[m]).join(' + ') + ')' : v.medio }; });
 }
 function ws(rows, cols) { const s = XLSX.utils.json_to_sheet(rows); s['!cols'] = cols.map(w => ({ wch: w })); return s; }
 // Confirmación extra antes de cerrar: muestra el resumen y exige tocar "Sí, cerrar el día".
@@ -630,7 +663,7 @@ $('btnConsol').addEventListener('click', () => {
   let acum = 0;
   const diario = fechas.map(f => { acum += a.porDia[f].total; const c = cierres[f]; const w = new Date(f + 'T12:00:00').getDay();
     const row = { Fecha: f, 'Día': DIAS[w], Ventas: a.porDia[f].ventas, Prendas: a.porDia[f].prendas, Total: a.porDia[f].total, Acumulado: acum };
-    vs.filter(v => v.fecha === f).forEach(v => row[v.medio] = (row[v.medio] || 0) + v.total);
+    vs.filter(v => v.fecha === f).forEach(v => { const pg = pagosDe(v); for (const m in pg) row[m] = (row[m] || 0) + pg[m]; });
     if (C.contarClientas) row.Clientas = clientas.filter(x => x.fecha === f).length;
     row['Diferencia caja'] = c ? c.diferencia : ''; return row; });
   XLSX.utils.book_append_sheet(wb, ws(diario, [12, 6, 8, 8, 12, 14, 12, 12, 14, 12, 10, 14]), 'Consolidado diario');
