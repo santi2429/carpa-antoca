@@ -168,11 +168,11 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:14px
   <div id="pasoScan"><div id="reader"></div>
     <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px"><span id="scanTxt" style="font-weight:600;font-size:15px"></span>
       <div style="height:8px;background:var(--stone);border-radius:4px;overflow:hidden"><div id="scanBar" style="height:100%;width:0;background:var(--esp);transition:width .1s"></div></div></div>
+    <button class="link" type="button" id="btnVolver" hidden style="padding:0">← Volver a la venta sin agregar</button>
     <p class="note">Apunta al QR del precio. Si no lo lee, elige el precio aquí:</p><div class="grid3" id="preciosManual"></div></div>
   <div id="pasoConf" hidden>
-    <div class="card" style="flex-direction:row;align-items:center;gap:12px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.4" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg><div><span class="note">Precio</span><div class="j" style="font-size:26px;font-weight:600" id="vPrecio"></div></div><button class="link" type="button" id="btnOtro" style="margin-left:auto">Cambiar</button></div>
-    <label for="vCant" class="sub">Cantidad de prendas</label>
-    <div class="qty"><button type="button" id="menos" aria-label="Restar">−</button><input id="vCant" inputmode="numeric" value="1"><button type="button" id="mas" aria-label="Sumar">+</button></div>
+    <div class="card" style="gap:4px"><span class="note">Prendas de esta venta</span><div class="list" id="carrito"></div></div>
+    <button class="sec" type="button" id="btnOtro" style="min-height:56px;font-weight:600;border:1px dashed #8C7B6B;background:#fff">+ Escanear otro precio</button>
     <span class="sub">Medio de pago</span><div class="grid2" id="medios"></div>
     <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--stone);padding-top:12px"><span class="sub" id="vDet"></span><span class="j" style="font-size:34px;font-weight:600" id="vTotal"></span></div>
     <button class="pri" type="button" id="btnReg">Registrar venta</button>
@@ -356,7 +356,7 @@ function render() {
   $('hoyTxt').textContent = f + ' · ' + DIAS[d.getDay()].toLowerCase();
   $('hoyTotal').textContent = fmt(vs.reduce((a, v) => a + v.total, 0));
   $('hoyPrendas').textContent = vs.reduce((a, v) => a + v.cant, 0) + ' prendas';
-  $('hoyVentas').textContent = vs.length + ' ventas';
+  $('hoyVentas').textContent = new Set(vs.map(v => v.grupo || v.id)).size + ' ventas';
   const nc = clientas.filter(c => c.fecha === f).length;
   $('hoyClientas').hidden = !C.contarClientas; $('hoyClientas').textContent = nc + ' clientas';
   $('btnClienta').hidden = !C.contarClientas;
@@ -398,6 +398,7 @@ function estadoScan(txt, p) { $('scanTxt').textContent = txt; $('scanBar').style
 function pararScanner() { if (scanner) { scanner.stop().catch(() => {}).finally(() => { try { scanner.clear(); } catch (e) {} }); scanner = null; } }
 function iniciarScanner() {
   $('pasoScan').hidden = false; $('pasoConf').hidden = true;
+  $('btnVolver').hidden = !carrito.length;
   if (!window.Html5Qrcode) { toast('Escáner no disponible: elige el precio'); return; }
   scanner = new Html5Qrcode('reader');
   // Lectura con calma: el mismo QR debe verse seguido durante 1,2 s (y nunca en el primer 0,8 s),
@@ -417,24 +418,47 @@ function iniciarScanner() {
   }, () => { if (cand && Date.now() - ultimo > 500) { cand = null; estadoScan('Apunta al QR del precio y quédate quieta un momento'); } })
     .catch(() => { scanner = null; toast('Sin permiso de cámara: elige el precio'); });
 }
+// Carrito: una venta puede tener varios precios. Cada precio se guarda como una línea con el mismo «grupo».
+let carrito = [];
 function elegirPrecio(p) {
-  pararScanner(); precioSel = p; $('vCant').value = 1; medioSel = C.medios[0]; pintarMedios();
-  $('pasoScan').hidden = true; $('pasoConf').hidden = false; $('vPrecio').textContent = fmt(p); calc();
+  pararScanner();
+  if (!carrito.length) { medioSel = C.medios[0]; pintarMedios(); }
+  const it = carrito.find(x => x.precio === p);
+  if (it) it.cant++; else carrito.push({ precio: p, cant: 1 });
+  $('pasoScan').hidden = true; $('pasoConf').hidden = false; pintarCarrito();
 }
-function calc() { const c = Math.max(1, num($('vCant').value)); $('vDet').textContent = c + ' × ' + fmt(precioSel); $('vTotal').textContent = fmt(c * precioSel); }
-$('btnScan').addEventListener('click', () => { abrir('shVenta'); iniciarScanner(); });
-$('btnCancel').addEventListener('click', () => { pararScanner(); cerrar('shVenta'); });
+function pintarCarrito() {
+  const box = $('carrito'); box.textContent = '';
+  carrito.forEach((it, i) => {
+    const row = document.createElement('div'); row.className = 'it';
+    const pr = document.createElement('b'); pr.className = 'j'; pr.style.fontSize = '20px'; pr.textContent = fmt(it.precio);
+    const q = document.createElement('div'); q.style.cssText = 'display:flex;align-items:center;gap:6px';
+    const btn = (txt, lbl, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sec'; b.style.cssText = 'width:44px;min-height:44px;padding:0;font:500 22px Jost,sans-serif'; b.textContent = txt; b.setAttribute('aria-label', lbl); b.addEventListener('click', fn); return b; };
+    const n = document.createElement('span'); n.style.cssText = 'min-width:28px;text-align:center;font:600 20px Jost,sans-serif'; n.textContent = it.cant;
+    q.append(btn('−', 'Restar', () => { if (it.cant > 1) it.cant--; else carrito.splice(i, 1); carrito.length ? pintarCarrito() : iniciarScanner(); }), n,
+             btn('+', 'Sumar', () => { it.cant++; pintarCarrito(); }));
+    const sub = document.createElement('b'); sub.style.cssText = 'min-width:90px;text-align:right'; sub.textContent = fmt(it.precio * it.cant);
+    row.append(pr, q, sub); box.append(row);
+  });
+  const prendas = carrito.reduce((a, x) => a + x.cant, 0), total = carrito.reduce((a, x) => a + x.cant * x.precio, 0);
+  $('vDet').textContent = prendas + (prendas === 1 ? ' prenda' : ' prendas');
+  $('vTotal').textContent = fmt(total);
+}
+$('btnScan').addEventListener('click', () => { carrito = []; abrir('shVenta'); iniciarScanner(); });
+$('btnCancel').addEventListener('click', () => { pararScanner(); carrito = []; cerrar('shVenta'); });
 $('btnOtro').addEventListener('click', iniciarScanner);
-$('menos').addEventListener('click', () => { $('vCant').value = Math.max(1, num($('vCant').value) - 1); calc(); });
-$('mas').addEventListener('click', () => { $('vCant').value = num($('vCant').value) + 1; calc(); });
-$('vCant').addEventListener('input', calc);
+$('btnVolver').addEventListener('click', () => { pararScanner(); $('pasoScan').hidden = true; $('pasoConf').hidden = false; });
 let registrando = false;
 $('btnReg').addEventListener('click', async () => {
-  if (registrando) return; registrando = true;
-  const cant = Math.max(1, num($('vCant').value)), ts = Date.now();
-  const v = { id: uid(), ts, fecha: dia(new Date(ts)), precio: precioSel, cant, total: cant * precioSel, medio: medioSel, uid: USER ? USER.uid : 'prueba' };
-  try { await guardarVenta(v); cerrar('shVenta'); toast('Venta registrada: ' + fmt(v.total)); }
-  catch (e) { toast('No se pudo guardar. Intenta de nuevo.'); }
+  if (registrando || !carrito.length) return; registrando = true;
+  const ts = Date.now(), grupo = uid(), fecha = dia(new Date(ts));
+  const lineas = carrito.map((it, i) => ({ id: grupo + '-' + i, grupo, ts: ts + i, fecha, precio: it.precio, cant: it.cant, total: it.cant * it.precio, medio: medioSel, uid: USER ? USER.uid : 'prueba' }));
+  const total = lineas.reduce((a, v) => a + v.total, 0);
+  try {
+    if (db) { const b = db.batch(); lineas.forEach(v => b.set(db.collection('ventas').doc(v.id), v)); enCola(b.commit()); }
+    else { lineas.forEach(v => ventas.push(v)); LS.set('carpa_ventas', ventas); render(); }
+    carrito = []; cerrar('shVenta'); toast('Venta registrada: ' + fmt(total));
+  } catch (e) { toast('No se pudo guardar. Intenta de nuevo.'); }
   registrando = false;
 });
 
@@ -464,13 +488,14 @@ function resumenDia(f) {
   const porPrecio = {}, porMedio = {};
   vs.forEach(v => { (porPrecio[v.precio] ??= { prendas: 0, valor: 0 }); porPrecio[v.precio].prendas += v.cant; porPrecio[v.precio].valor += v.total;
     porMedio[v.medio] = (porMedio[v.medio] || 0) + v.total; });
-  return { vs, porPrecio, porMedio, total: vs.reduce((a, v) => a + v.total, 0), prendas: vs.reduce((a, v) => a + v.cant, 0), clientas: clientas.filter(c => c.fecha === f).length };
+  const nVentas = new Set(vs.map(v => v.grupo || v.id)).size;
+  return { vs, nVentas, porPrecio, porMedio, total: vs.reduce((a, v) => a + v.total, 0), prendas: vs.reduce((a, v) => a + v.cant, 0), clientas: clientas.filter(c => c.fecha === f).length };
 }
 function filas(tbody, rows) { tbody.textContent = ''; rows.forEach(r => { const tr = document.createElement('tr'); r.forEach((c, i) => { const td = document.createElement('td'); td.textContent = c; if (i) td.className = 'n'; tr.append(td); }); tbody.append(tr); }); }
 function renderCierre() {
   const f = $('fCierre').value || hoy(), r = resumenDia(f), cz = cierres[f];
   $('cTotal').textContent = fmt(r.total);
-  $('cResumen').textContent = r.prendas + ' prendas · ' + r.vs.length + ' ventas' + (C.contarClientas ? ' · ' + r.clientas + ' clientas' : '');
+  $('cResumen').textContent = r.prendas + ' prendas · ' + r.nVentas + ' ventas' + (C.contarClientas ? ' · ' + r.clientas + ' clientas' : '');
   filas($('cPrecio'), C.precios.filter(p => r.porPrecio[p]).map(p => [fmt(p), r.porPrecio[p].prendas, fmt(r.porPrecio[p].valor)]));
   filas($('cMedio'), C.medios.map(m => [m, fmt(r.porMedio[m] || 0)]));
   if (cz && document.activeElement !== $('cContado')) { $('cBase').value = fmt(cz.base); $('cContado').value = fmt(cz.contado); }
@@ -498,7 +523,7 @@ $('btnCerrar').addEventListener('click', () => {
   const x = renderCierre();
   if (x.cont === null) { toast('Primero escribe el efectivo contado'); $('cContado').focus(); return; }
   if (!x.r.vs.length) { toast('No hay ventas registradas ese día'); return; }
-  const filasC = [['Fecha', x.f], ['Ventas', x.r.vs.length + ' · ' + x.r.prendas + ' prendas'], ['Total vendido', fmt(x.r.total)]]
+  const filasC = [['Fecha', x.f], ['Ventas', x.r.nVentas + ' · ' + x.r.prendas + ' prendas'], ['Total vendido', fmt(x.r.total)]]
     .concat(C.medios.map(m => [m, fmt(x.r.porMedio[m] || 0)]))
     .concat([['Debe haber en efectivo', fmt(x.debe)], ['Efectivo contado', fmt(x.cont)], ['Diferencia', x.dif === 0 ? 'Cuadra' : (x.dif > 0 ? 'Sobran ' : 'Faltan ') + fmt(Math.abs(x.dif))]]);
   filas($('ccTabla'), filasC);
@@ -515,7 +540,7 @@ $('ccSi').addEventListener('click', async () => {
 async function cerrarDia() {
   const x = renderCierre();
   const wb = XLSX.utils.book_new();
-  const res = [{ Concepto: 'Fecha', Valor: x.f }, { Concepto: 'Total vendido', Valor: x.r.total }, { Concepto: 'Prendas', Valor: x.r.prendas }, { Concepto: 'Ventas', Valor: x.r.vs.length }];
+  const res = [{ Concepto: 'Fecha', Valor: x.f }, { Concepto: 'Total vendido', Valor: x.r.total }, { Concepto: 'Prendas', Valor: x.r.prendas }, { Concepto: 'Ventas', Valor: x.r.nVentas }];
   if (C.contarClientas) res.push({ Concepto: 'Clientas', Valor: x.r.clientas });
   res.push({ Concepto: 'Base inicial', Valor: x.base }, { Concepto: 'Efectivo vendido', Valor: x.efec }, { Concepto: 'Debe haber', Valor: x.debe }, { Concepto: 'Efectivo contado', Valor: x.cont }, { Concepto: 'Diferencia', Valor: x.dif });
   XLSX.utils.book_append_sheet(wb, ws(res, [20, 16]), 'Resumen');
@@ -523,7 +548,7 @@ async function cerrarDia() {
   XLSX.utils.book_append_sheet(wb, ws(C.medios.map(m => ({ 'Medio de pago': m, Valor: x.r.porMedio[m] || 0 })), [18, 14]), 'Por medio de pago');
   XLSX.utils.book_append_sheet(wb, ws(hojaVentas(x.r.vs), [12, 8, 6, 10, 9, 12, 16]), 'Ventas');
   XLSX.writeFile(wb, 'Carpa_Antoca_' + x.f + '.xlsx');
-  try { await guardarCierre({ fecha: x.f, ts: Date.now(), uid: USER ? USER.uid : 'prueba', total: x.r.total, prendas: x.r.prendas, ventas: x.r.vs.length, base: x.base, efectivo: x.efec, contado: x.cont, diferencia: x.dif }); toast('Día cerrado'); renderCierre(); avisarCierre(x.f); }
+  try { await guardarCierre({ fecha: x.f, ts: Date.now(), uid: USER ? USER.uid : 'prueba', total: x.r.total, prendas: x.r.prendas, ventas: x.r.nVentas, base: x.base, efectivo: x.efec, contado: x.cont, diferencia: x.dif }); toast('Día cerrado'); renderCierre(); avisarCierre(x.f); }
   catch (e) { toast('Excel listo, pero el cierre no se guardó'); }
 }
 
