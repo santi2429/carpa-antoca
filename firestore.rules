@@ -56,7 +56,12 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.tipo in ['conteo', 'surtido']
         && request.resource.data.cant is int && request.resource.data.cant >= 0 && request.resource.data.cant < 100000;
-      allow update, delete: if false;
+      // Un administrador solo puede corregir la hora (ts y fecha) de un movimiento.
+      allow update: if admin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ts', 'fecha'])
+        && request.resource.data.ts is int && request.resource.data.ts <= request.time.toMillis();
+      // Solo un administrador puede borrar movimientos.
+      allow delete: if admin();
     }
 
     // ---- Contador de clientas ----

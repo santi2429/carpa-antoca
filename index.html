@@ -217,6 +217,8 @@ nav button{flex:1;background:none;border-radius:0;min-height:62px;font-size:13px
   <label for="invCant" class="sub">Cantidad de prendas</label>
   <input class="f" id="invCant" inputmode="numeric" style="font:600 28px Jost,sans-serif;height:60px;text-align:center">
   <span id="invDif" class="sub"></span>
+  <label for="invHora" class="sub">Hora (de hoy)</label>
+  <input class="f" id="invHora" type="time" style="height:48px">
   <label for="invNota" class="sub">Nota (opcional)</label>
   <input class="f" id="invNota" maxlength="80" placeholder="Ej. surtido de bodega, conteo de la mañana">
   <div class="grid2"><button class="sec" type="button" id="invNo">Cancelar</button><button class="pri" type="button" id="invSi">Guardar</button></div>
@@ -750,13 +752,27 @@ function renderInventario() {
     const sm = document.createElement('small');
     const quien = (usuarios.find(u => u.uid === m.uid) || {}).nombre || '';
     sm.textContent = m.fecha + ' · ' + new Date(m.ts).toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' }) + (quien ? ' · ' + quien : '') + (m.nota ? ' · ' + m.nota : '');
-    l.append(b, sm); row.append(l); box.append(row);
+    l.append(b, sm); row.append(l);
+    if (esAdmin()) {
+      // Borrar en dos toques: el primero pide confirmación, el segundo borra.
+      const x = document.createElement('button'); x.type = 'button'; x.className = 'sec';
+      x.style.cssText = 'min-height:40px;padding:0 12px;font-size:13px'; x.textContent = 'Borrar';
+      x.addEventListener('click', () => {
+        if (!x.dataset.ok) { x.dataset.ok = '1'; x.textContent = '¿Seguro? Borrar'; x.style.color = '#A33'; setTimeout(() => { delete x.dataset.ok; x.textContent = 'Borrar'; x.style.color = ''; }, 4000); return; }
+        if (db) enCola(db.collection('inventario').doc(m.id).delete());
+        else { movInv = movInv.filter(y => y.id !== m.id); renderInventario(); }
+        toast('Movimiento borrado');
+      });
+      row.append(x);
+    }
+    box.append(row);
   });
 }
 let invTipo = null;
 function abrirInv(tipo) {
   if (!esAdmin()) return;
   invTipo = tipo; $('invCant').value = ''; $('invNota').value = ''; $('invDif').textContent = '';
+  const ah = new Date(); $('invHora').value = pad(ah.getHours()) + ':' + pad(ah.getMinutes());
   $('ttlInv').textContent = tipo === 'conteo' ? 'Hacer conteo' : 'Llegó mercancía';
   $('invAyuda').textContent = tipo === 'conteo'
     ? 'Cuenta todas las prendas que hay físicamente en la carpa. Desde este número se vuelve a calcular el inventario.'
@@ -777,7 +793,10 @@ $('invCant').addEventListener('input', () => {
 $('invSi').addEventListener('click', () => {
   const n = num($('invCant').value);
   if ($('invCant').value === '' || (invTipo === 'surtido' && n <= 0)) { toast('Escribe la cantidad'); return; }
-  const ts = Date.now();
+  // Hora elegida (hoy). Si queda en el futuro o vacía, se usa la hora actual.
+  let ts = Date.now();
+  const hm = /^(\d{1,2}):(\d{2})$/.exec($('invHora').value || '');
+  if (hm) { const d = new Date(); d.setHours(+hm[1], +hm[2], 0, 0); if (d.getTime() <= ts) ts = d.getTime(); }
   const m = { id: uid(), ts, fecha: dia(new Date(ts)), tipo: invTipo, cant: n, nota: $('invNota').value.trim().slice(0, 80), uid: USER ? USER.uid : 'prueba' };
   if (db) enCola(db.collection('inventario').doc(m.id).set(m));
   else { movInv.push(m); renderInventario(); }
